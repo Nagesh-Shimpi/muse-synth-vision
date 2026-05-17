@@ -3,6 +3,7 @@ import { z } from "zod";
 
 const InputSchema = z.object({
   imageDataUrl: z.string().min(20).max(8_000_000),
+  mode: z.enum(["photo", "painting"]).optional().default("photo"),
 });
 
 const ResponseSchema = z.object({
@@ -10,6 +11,12 @@ const ResponseSchema = z.object({
   confidence: z.number().min(0).max(100),
   family: z.string(),
   description: z.string(),
+  origin: z.string().optional().default("Unknown"),
+  era: z.string().optional().default("Unknown"),
+  history: z.string().optional().default(""),
+  cultural: z.string().optional().default(""),
+  funFact: z.string().optional().default(""),
+  isArtwork: z.boolean().optional().default(false),
 });
 
 export const analyzeInstrument = createServerFn({ method: "POST" })
@@ -18,11 +25,16 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("AI service is not configured");
 
+    const paintingHint =
+      data.mode === "painting"
+        ? "This image is a painting, fresco, sculpture or museum artwork. Identify the depicted instrument as a musicologist would. Set isArtwork to true."
+        : "This image is a photograph of a real or partial instrument.";
+
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${key}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
@@ -30,14 +42,14 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "You identify musical instruments in images, including those in paintings, sculptures, museum photographs, and partial views. Always respond using the provided tool.",
+              "You are a master ethnomusicologist and museum curator. Identify the most prominent musical instrument in the image and provide rich, scholarly, but accessible context. Always respond via the provided tool.",
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Identify the most prominent musical instrument in this image. If it is from a painting or artwork, identify the depicted instrument. Provide a concise scholarly description (1-2 sentences).",
+                text: `${paintingHint} Identify the most prominent musical instrument. Provide: a 1-2 sentence description, geographic origin, era/century, a 2-3 sentence history, a 1-2 sentence note on cultural significance, and a short surprising fun fact.`,
               },
               { type: "image_url", image_url: { url: data.imageDataUrl } },
             ],
@@ -48,7 +60,7 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
             type: "function",
             function: {
               name: "report_instrument",
-              description: "Report the identified instrument.",
+              description: "Report the identified instrument with museum-grade context.",
               parameters: {
                 type: "object",
                 additionalProperties: false,
@@ -60,8 +72,25 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
                     description: "One of: String, Keyboard, Wind, Brass, Percussion, Plucked, Bowed, Electronic, Unknown",
                   },
                   description: { type: "string" },
+                  origin: { type: "string", description: "Country / region of origin" },
+                  era: { type: "string", description: "Era or approximate century of origin" },
+                  history: { type: "string", description: "2-3 sentence history" },
+                  cultural: { type: "string", description: "Cultural / musical significance" },
+                  funFact: { type: "string", description: "One surprising fact" },
+                  isArtwork: { type: "boolean", description: "True if the source is a painting/sculpture/artwork" },
                 },
-                required: ["instrument", "confidence", "family", "description"],
+                required: [
+                  "instrument",
+                  "confidence",
+                  "family",
+                  "description",
+                  "origin",
+                  "era",
+                  "history",
+                  "cultural",
+                  "funFact",
+                  "isArtwork",
+                ],
               },
             },
           },
@@ -82,6 +111,5 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
     };
     const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("AI did not return a structured response");
-    const parsed = ResponseSchema.parse(JSON.parse(args));
-    return parsed;
+    return ResponseSchema.parse(JSON.parse(args));
   });
