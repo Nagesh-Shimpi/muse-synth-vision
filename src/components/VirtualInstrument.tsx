@@ -278,9 +278,16 @@ function Fretboard({
                 return (
                   <button
                     key={key}
+                    data-fret-cell="1"
+                    data-note={note}
+                    data-cell-key={key}
                     onPointerDown={(e) => {
-                      e.currentTarget.setPointerCapture(e.pointerId);
+                      // do NOT capture: we want pointerenter on siblings for swipe-strum
+                      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
                       pluck(key, note, duration);
+                    }}
+                    onPointerEnter={(e) => {
+                      if (e.buttons > 0) pluck(key, note, duration);
                     }}
                     className={`relative z-10 flex-1 h-9 sm:h-10 rounded-md border border-white/10 text-[10px] font-medium transition-all active:scale-95 ${
                       fret === 0 ? "bg-white/5" : "bg-white/[0.03] hover:bg-white/10"
