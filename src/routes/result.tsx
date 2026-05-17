@@ -21,7 +21,7 @@ export const Route = createFileRoute("/result")({
 });
 
 function ResultPage() {
-  const current = useHistoryStore((s: { current: ReturnType<typeof useHistoryStore.getState>["current"] }) => s.current);
+  const current = useHistoryStore((s) => s.current);
   const [vol, setVol] = useState(75);
   const [muted, setMutedState] = useState(false);
 
