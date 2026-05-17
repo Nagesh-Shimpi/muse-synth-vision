@@ -251,10 +251,29 @@ function Fretboard({
           ? "from-rose-300 to-fuchsia-500"
           : "from-cyan-300 to-fuchsia-400";
 
+  const lastTriggered = useRef<string | null>(null);
+  const handleSwipe = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.buttons === 0 && e.pointerType !== "touch") return;
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cell = el?.closest<HTMLElement>("[data-fret-cell]");
+      if (!cell) return;
+      const key = cell.dataset.cellKey!;
+      const note = cell.dataset.note!;
+      if (lastTriggered.current === key) return;
+      lastTriggered.current = key;
+      pluck(key, note, duration);
+    },
+    [pluck, duration],
+  );
+  const resetSwipe = () => {
+    lastTriggered.current = null;
+  };
+
   return (
     <div className="space-y-3 py-2">
       <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">Tap a fret to pluck · open string at the left</div>
+        <div className="text-xs text-muted-foreground">Tap or swipe across strings to strum</div>
         <button
           onClick={strumAll}
           className="text-xs glass rounded-full px-3 py-1.5 hover:bg-white/5 transition active:scale-95"
@@ -262,7 +281,13 @@ function Fretboard({
           Strum all
         </button>
       </div>
-      <div className="rounded-2xl glass-strong p-3 sm:p-4 overflow-x-auto">
+      <div
+        className="rounded-2xl glass-strong p-3 sm:p-4 overflow-x-auto"
+        style={{ touchAction: "none" }}
+        onPointerMove={handleSwipe}
+        onPointerUp={resetSwipe}
+        onPointerLeave={resetSwipe}
+      >
         <div className="min-w-[480px]">
           {tuning.map((s) => (
             <div key={s.open} className="flex items-center gap-1 sm:gap-1.5 h-12 sm:h-14 relative">
