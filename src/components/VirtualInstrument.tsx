@@ -393,24 +393,37 @@ function Drums() {
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {DRUM_PADS.map((p) => {
           const isActive = active.has(p.key);
+          const v = velocities[p.key] ?? 1;
           return (
             <button
               key={p.key}
               onPointerDown={(e) => {
-                e.currentTarget.setPointerCapture(e.pointerId);
+                (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
                 hit(p.id, p.key);
               }}
-              className={`relative aspect-square rounded-2xl glass-strong grid place-items-center font-semibold transition-transform active:scale-95 overflow-hidden ${
-                isActive ? "neon-border" : ""
+              onPointerEnter={(e) => {
+                if (e.buttons > 0) hit(p.id, p.key);
+              }}
+              style={{ touchAction: "none" }}
+              className={`relative aspect-square rounded-2xl glass-strong grid place-items-center font-semibold transition-transform overflow-hidden ${
+                isActive ? "neon-border scale-[0.96]" : ""
               }`}
             >
               {isActive && (
-                <motion.span
-                  initial={{ scale: 0, opacity: 0.6 }}
-                  animate={{ scale: 1.6, opacity: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="absolute inset-0 rounded-2xl bg-[image:var(--gradient-neon)]"
-                />
+                <>
+                  <motion.span
+                    initial={{ scale: 0, opacity: 0.7 * v }}
+                    animate={{ scale: 1.6 + v * 0.5, opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="absolute inset-0 rounded-2xl bg-[image:var(--gradient-neon)]"
+                  />
+                  <motion.span
+                    initial={{ scale: 0.5, opacity: 0.9 }}
+                    animate={{ scale: 1 + v * 0.3, opacity: 0 }}
+                    transition={{ duration: 0.35 }}
+                    className="absolute inset-2 rounded-2xl border-2 border-white/60"
+                  />
+                </>
               )}
               <div className="relative text-center">
                 <div className="text-sm sm:text-base">{p.label}</div>
