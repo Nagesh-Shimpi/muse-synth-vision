@@ -355,12 +355,20 @@ const DRUM_PADS = [
 function Drums() {
   const { active, on, off } = useActive();
   const [pulse, setPulse] = useState(0);
+  const [velocities, setVelocities] = useState<Record<string, number>>({});
+  const lastHit = useRef<Record<string, number>>({});
 
   const hit = useCallback(
     async (id: "kick" | "snare" | "hat" | "tom", key: string) => {
       await ensureAudio();
+      const now = performance.now();
+      const dt = now - (lastHit.current[key] ?? 0);
+      lastHit.current[key] = now;
+      // closer hits = higher velocity (visual only)
+      const v = Math.max(0.5, Math.min(1.4, 1.4 - Math.min(700, dt) / 700));
+      setVelocities((s) => ({ ...s, [key]: v }));
       triggerDrum(id);
-      vibrate(12);
+      vibrate(Math.round(8 + v * 8));
       on(key);
       setPulse((p) => p + 1);
       window.setTimeout(() => off(key), 160);
