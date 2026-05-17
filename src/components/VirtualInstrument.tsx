@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { Maximize2, Minimize2 } from "lucide-react";
 import {
   ensureAudio,
   getPiano,
@@ -28,6 +29,7 @@ function useActive() {
     });
   return { active, on, off };
 }
+
 
 function vibrate(ms = 8) {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -249,10 +251,29 @@ function Fretboard({
           ? "from-rose-300 to-fuchsia-500"
           : "from-cyan-300 to-fuchsia-400";
 
+  const lastTriggered = useRef<string | null>(null);
+  const handleSwipe = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.buttons === 0 && e.pointerType !== "touch") return;
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cell = el?.closest<HTMLElement>("[data-fret-cell]");
+      if (!cell) return;
+      const key = cell.dataset.cellKey!;
+      const note = cell.dataset.note!;
+      if (lastTriggered.current === key) return;
+      lastTriggered.current = key;
+      pluck(key, note, duration);
+    },
+    [pluck, duration],
+  );
+  const resetSwipe = () => {
+    lastTriggered.current = null;
+  };
+
   return (
     <div className="space-y-3 py-2">
       <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">Tap a fret to pluck · open string at the left</div>
+        <div className="text-xs text-muted-foreground">Tap or swipe across strings to strum</div>
         <button
           onClick={strumAll}
           className="text-xs glass rounded-full px-3 py-1.5 hover:bg-white/5 transition active:scale-95"
@@ -260,7 +281,13 @@ function Fretboard({
           Strum all
         </button>
       </div>
-      <div className="rounded-2xl glass-strong p-3 sm:p-4 overflow-x-auto">
+      <div
+        className="rounded-2xl glass-strong p-3 sm:p-4 overflow-x-auto"
+        style={{ touchAction: "none" }}
+        onPointerMove={handleSwipe}
+        onPointerUp={resetSwipe}
+        onPointerLeave={resetSwipe}
+      >
         <div className="min-w-[480px]">
           {tuning.map((s) => (
             <div key={s.open} className="flex items-center gap-1 sm:gap-1.5 h-12 sm:h-14 relative">
@@ -276,9 +303,16 @@ function Fretboard({
                 return (
                   <button
                     key={key}
+                    data-fret-cell="1"
+                    data-note={note}
+                    data-cell-key={key}
                     onPointerDown={(e) => {
-                      e.currentTarget.setPointerCapture(e.pointerId);
+                      // do NOT capture: we want pointerenter on siblings for swipe-strum
+                      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
                       pluck(key, note, duration);
+                    }}
+                    onPointerEnter={(e) => {
+                      if (e.buttons > 0) pluck(key, note, duration);
                     }}
                     className={`relative z-10 flex-1 h-9 sm:h-10 rounded-md border border-white/10 text-[10px] font-medium transition-all active:scale-95 ${
                       fret === 0 ? "bg-white/5" : "bg-white/[0.03] hover:bg-white/10"
@@ -321,12 +355,20 @@ const DRUM_PADS = [
 function Drums() {
   const { active, on, off } = useActive();
   const [pulse, setPulse] = useState(0);
+  const [velocities, setVelocities] = useState<Record<string, number>>({});
+  const lastHit = useRef<Record<string, number>>({});
 
   const hit = useCallback(
     async (id: "kick" | "snare" | "hat" | "tom", key: string) => {
       await ensureAudio();
+      const now = performance.now();
+      const dt = now - (lastHit.current[key] ?? 0);
+      lastHit.current[key] = now;
+      // closer hits = higher velocity (visual only)
+      const v = Math.max(0.5, Math.min(1.4, 1.4 - Math.min(700, dt) / 700));
+      setVelocities((s) => ({ ...s, [key]: v }));
       triggerDrum(id);
-      vibrate(12);
+      vibrate(Math.round(8 + v * 8));
       on(key);
       setPulse((p) => p + 1);
       window.setTimeout(() => off(key), 160);
@@ -351,24 +393,37 @@ function Drums() {
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {DRUM_PADS.map((p) => {
           const isActive = active.has(p.key);
+          const v = velocities[p.key] ?? 1;
           return (
             <button
               key={p.key}
               onPointerDown={(e) => {
-                e.currentTarget.setPointerCapture(e.pointerId);
+                (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
                 hit(p.id, p.key);
               }}
-              className={`relative aspect-square rounded-2xl glass-strong grid place-items-center font-semibold transition-transform active:scale-95 overflow-hidden ${
-                isActive ? "neon-border" : ""
+              onPointerEnter={(e) => {
+                if (e.buttons > 0) hit(p.id, p.key);
+              }}
+              style={{ touchAction: "none" }}
+              className={`relative aspect-square rounded-2xl glass-strong grid place-items-center font-semibold transition-transform overflow-hidden ${
+                isActive ? "neon-border scale-[0.96]" : ""
               }`}
             >
               {isActive && (
-                <motion.span
-                  initial={{ scale: 0, opacity: 0.6 }}
-                  animate={{ scale: 1.6, opacity: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="absolute inset-0 rounded-2xl bg-[image:var(--gradient-neon)]"
-                />
+                <>
+                  <motion.span
+                    initial={{ scale: 0, opacity: 0.7 * v }}
+                    animate={{ scale: 1.6 + v * 0.5, opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="absolute inset-0 rounded-2xl bg-[image:var(--gradient-neon)]"
+                  />
+                  <motion.span
+                    initial={{ scale: 0.5, opacity: 0.9 }}
+                    animate={{ scale: 1 + v * 0.3, opacity: 0 }}
+                    transition={{ duration: 0.35 }}
+                    className="absolute inset-2 rounded-2xl border-2 border-white/60"
+                  />
+                </>
               )}
               <div className="relative text-center">
                 <div className="text-sm sm:text-base">{p.label}</div>
@@ -482,8 +537,54 @@ function Flute() {
 /*  Root                                                                      */
 /* -------------------------------------------------------------------------- */
 
+const MOODS: Record<InstrumentKey, { label: string; glow: string; halo: string; bg: string }> = {
+  Piano: {
+    label: "Concert Hall",
+    glow: "oklch(0.78 0.18 230 / 0.55)",
+    halo: "from-sky-400/30 via-indigo-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.45 0.18 240 / 0.35), transparent 70%)",
+  },
+  Guitar: {
+    label: "Warm Stage",
+    glow: "oklch(0.78 0.18 60 / 0.55)",
+    halo: "from-amber-400/30 via-orange-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.18 60 / 0.35), transparent 70%)",
+  },
+  Violin: {
+    label: "Velvet Room",
+    glow: "oklch(0.78 0.18 350 / 0.55)",
+    halo: "from-rose-400/30 via-fuchsia-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.2 350 / 0.35), transparent 70%)",
+  },
+  Sitar: {
+    label: "Mystic Raga",
+    glow: "oklch(0.78 0.18 40 / 0.6)",
+    halo: "from-amber-300/40 via-rose-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.2 40 / 0.4), transparent 70%)",
+  },
+  Veena: {
+    label: "Temple Glow",
+    glow: "oklch(0.8 0.18 80 / 0.55)",
+    halo: "from-amber-300/40 via-orange-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.18 80 / 0.4), transparent 70%)",
+  },
+  Drums: {
+    label: "Pulse Arena",
+    glow: "oklch(0.8 0.2 320 / 0.6)",
+    halo: "from-fuchsia-500/30 via-purple-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.22 320 / 0.4), transparent 70%)",
+  },
+  Flute: {
+    label: "Airy Mist",
+    glow: "oklch(0.82 0.15 180 / 0.55)",
+    halo: "from-cyan-300/30 via-teal-400/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.15 180 / 0.35), transparent 70%)",
+  },
+};
+
 export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
   const [sustain, setSustain] = useState(false);
+  const [fs, setFs] = useState(false);
 
   const fretConfig = useMemo(() => {
     if (kind === "Sitar") return { tuning: SITAR_TUNING, get: getSitar, flavor: "sitar" as const, frets: 6 };
@@ -492,34 +593,96 @@ export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
     return { tuning: GUITAR_TUNING, get: getGuitar, flavor: "guitar" as const, frets: 5 };
   }, [kind]);
 
-  return (
-    <div className="glass-strong rounded-3xl p-3 sm:p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">{kind} · Live</div>
-        {kind === "Piano" && (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={sustain}
-              onChange={(e) => setSustain(e.target.checked)}
-              className="accent-primary"
-            />
-            Sustain
-          </label>
-        )}
-      </div>
+  const mood = MOODS[kind];
 
-      {kind === "Piano" && <Piano sustain={sustain} />}
-      {(kind === "Guitar" || kind === "Sitar" || kind === "Veena" || kind === "Violin") && (
-        <Fretboard
-          tuning={fretConfig.tuning}
-          get={fretConfig.get}
-          frets={fretConfig.frets}
-          flavor={fretConfig.flavor}
-        />
-      )}
-      {kind === "Drums" && <Drums />}
-      {kind === "Flute" && <Flute />}
-    </div>
+  useEffect(() => {
+    if (!fs) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFs(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [fs]);
+
+  const content = (
+    <motion.div
+      key={kind}
+      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="relative glass-strong rounded-3xl p-3 sm:p-5 overflow-hidden"
+      style={{
+        boxShadow: `0 0 60px ${mood.glow}, 0 0 0 1px oklch(1 0 0 / 0.08)`,
+        backgroundImage: mood.bg,
+      }}
+    >
+      {/* stage halo */}
+      <div
+        className={`pointer-events-none absolute -inset-1 bg-gradient-to-b ${mood.halo} blur-2xl opacity-70`}
+        aria-hidden
+      />
+      <div className="relative">
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground truncate">
+            {kind} · <span className="neon-text font-semibold">{mood.label}</span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {kind === "Piano" && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={sustain}
+                  onChange={(e) => setSustain(e.target.checked)}
+                  className="accent-primary"
+                />
+                Sustain
+              </label>
+            )}
+            <button
+              onClick={() => setFs((v) => !v)}
+              aria-label={fs ? "Exit fullscreen" : "Enter performance mode"}
+              className="h-8 w-8 grid place-items-center rounded-full glass hover:bg-white/5 transition"
+            >
+              {fs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {kind === "Piano" && <Piano sustain={sustain} />}
+        {(kind === "Guitar" || kind === "Sitar" || kind === "Veena" || kind === "Violin") && (
+          <Fretboard
+            tuning={fretConfig.tuning}
+            get={fretConfig.get}
+            frets={fretConfig.frets}
+            flavor={fretConfig.flavor}
+          />
+        )}
+        {kind === "Drums" && <Drums />}
+        {kind === "Flute" && <Flute />}
+      </div>
+    </motion.div>
+  );
+
+  return (
+    <>
+      {!fs && content}
+      <AnimatePresence>
+        {fs && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-background/95 backdrop-blur-2xl p-3 sm:p-6 overflow-auto"
+            style={{ backgroundImage: mood.bg }}
+          >
+            <div className="mx-auto max-w-5xl">{content}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

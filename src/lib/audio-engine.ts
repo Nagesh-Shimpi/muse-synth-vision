@@ -42,14 +42,44 @@ export function getPiano() {
   return synthCache.get("piano") as Tone.PolySynth;
 }
 
-export function getGuitar() {
-  if (!synthCache.has("guitar")) {
-    const s = new Tone.PluckSynth({ attackNoise: 1, dampening: 4000, resonance: 0.85 });
-    const rev = new Tone.Reverb({ decay: 1.6, wet: 0.2 });
-    s.chain(rev, out());
-    synthCache.set("guitar", s);
+// Polyphonic pluck via round-robin voice pool (PluckSynth is monophonic).
+function makePool(
+  key: string,
+  voices: number,
+  factory: () => Tone.PluckSynth,
+  reverbDecay: number,
+  reverbWet: number,
+) {
+  if (!synthCache.has(key)) {
+    const rev = new Tone.Reverb({ decay: reverbDecay, wet: reverbWet });
+    rev.connect(out());
+    const pool: Tone.PluckSynth[] = [];
+    for (let i = 0; i < voices; i++) {
+      const s = factory();
+      s.connect(rev);
+      pool.push(s);
+    }
+    let idx = 0;
+    const facade = {
+      triggerAttackRelease: (n: string, d: string) => {
+        pool[idx].triggerAttackRelease(n, d);
+        idx = (idx + 1) % pool.length;
+      },
+      dispose: () => pool.forEach((p) => p.dispose()),
+    } as unknown as Tone.PluckSynth;
+    synthCache.set(key, facade);
   }
-  return synthCache.get("guitar") as Tone.PluckSynth;
+  return synthCache.get(key) as Tone.PluckSynth;
+}
+
+export function getGuitar() {
+  return makePool(
+    "guitar",
+    8,
+    () => new Tone.PluckSynth({ attackNoise: 1, dampening: 4000, resonance: 0.85 }),
+    1.6,
+    0.2,
+  );
 }
 
 export function getViolin() {
@@ -79,23 +109,23 @@ export function getFlute() {
 }
 
 export function getSitar() {
-  if (!synthCache.has("sitar")) {
-    const s = new Tone.PluckSynth({ attackNoise: 2.5, dampening: 2500, resonance: 0.95 });
-    const rev = new Tone.Reverb({ decay: 3.2, wet: 0.4 });
-    s.chain(rev, out());
-    synthCache.set("sitar", s);
-  }
-  return synthCache.get("sitar") as Tone.PluckSynth;
+  return makePool(
+    "sitar",
+    10,
+    () => new Tone.PluckSynth({ attackNoise: 2.5, dampening: 2500, resonance: 0.95 }),
+    3.2,
+    0.4,
+  );
 }
 
 export function getVeena() {
-  if (!synthCache.has("veena")) {
-    const s = new Tone.PluckSynth({ attackNoise: 1.8, dampening: 1800, resonance: 0.97 });
-    const rev = new Tone.Reverb({ decay: 3.6, wet: 0.45 });
-    s.chain(rev, out());
-    synthCache.set("veena", s);
-  }
-  return synthCache.get("veena") as Tone.PluckSynth;
+  return makePool(
+    "veena",
+    10,
+    () => new Tone.PluckSynth({ attackNoise: 1.8, dampening: 1800, resonance: 0.97 }),
+    3.6,
+    0.45,
+  );
 }
 
 export function triggerDrum(pad: "kick" | "snare" | "hat" | "tom") {
