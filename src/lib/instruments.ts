@@ -7,10 +7,16 @@ export const KNOWN_INSTRUMENTS: InstrumentKey[] = [
 
 export type Detection = {
   instrument: string;
-  confidence: number; // 0-100
+  confidence: number;
   family: string;
   description: string;
   playable: InstrumentKey | null;
+  origin?: string;
+  era?: string;
+  history?: string;
+  cultural?: string;
+  funFact?: string;
+  isArtwork?: boolean;
 };
 
 export function mapToPlayable(instrument: string): InstrumentKey | null {
