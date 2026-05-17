@@ -537,8 +537,54 @@ function Flute() {
 /*  Root                                                                      */
 /* -------------------------------------------------------------------------- */
 
+const MOODS: Record<InstrumentKey, { label: string; glow: string; halo: string; bg: string }> = {
+  Piano: {
+    label: "Concert Hall",
+    glow: "oklch(0.78 0.18 230 / 0.55)",
+    halo: "from-sky-400/30 via-indigo-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.45 0.18 240 / 0.35), transparent 70%)",
+  },
+  Guitar: {
+    label: "Warm Stage",
+    glow: "oklch(0.78 0.18 60 / 0.55)",
+    halo: "from-amber-400/30 via-orange-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.18 60 / 0.35), transparent 70%)",
+  },
+  Violin: {
+    label: "Velvet Room",
+    glow: "oklch(0.78 0.18 350 / 0.55)",
+    halo: "from-rose-400/30 via-fuchsia-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.2 350 / 0.35), transparent 70%)",
+  },
+  Sitar: {
+    label: "Mystic Raga",
+    glow: "oklch(0.78 0.18 40 / 0.6)",
+    halo: "from-amber-300/40 via-rose-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.2 40 / 0.4), transparent 70%)",
+  },
+  Veena: {
+    label: "Temple Glow",
+    glow: "oklch(0.8 0.18 80 / 0.55)",
+    halo: "from-amber-300/40 via-orange-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.18 80 / 0.4), transparent 70%)",
+  },
+  Drums: {
+    label: "Pulse Arena",
+    glow: "oklch(0.8 0.2 320 / 0.6)",
+    halo: "from-fuchsia-500/30 via-purple-500/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.22 320 / 0.4), transparent 70%)",
+  },
+  Flute: {
+    label: "Airy Mist",
+    glow: "oklch(0.82 0.15 180 / 0.55)",
+    halo: "from-cyan-300/30 via-teal-400/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.15 180 / 0.35), transparent 70%)",
+  },
+};
+
 export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
   const [sustain, setSustain] = useState(false);
+  const [fs, setFs] = useState(false);
 
   const fretConfig = useMemo(() => {
     if (kind === "Sitar") return { tuning: SITAR_TUNING, get: getSitar, flavor: "sitar" as const, frets: 6 };
@@ -547,34 +593,96 @@ export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
     return { tuning: GUITAR_TUNING, get: getGuitar, flavor: "guitar" as const, frets: 5 };
   }, [kind]);
 
-  return (
-    <div className="glass-strong rounded-3xl p-3 sm:p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">{kind} · Live</div>
-        {kind === "Piano" && (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={sustain}
-              onChange={(e) => setSustain(e.target.checked)}
-              className="accent-primary"
-            />
-            Sustain
-          </label>
-        )}
-      </div>
+  const mood = MOODS[kind];
 
-      {kind === "Piano" && <Piano sustain={sustain} />}
-      {(kind === "Guitar" || kind === "Sitar" || kind === "Veena" || kind === "Violin") && (
-        <Fretboard
-          tuning={fretConfig.tuning}
-          get={fretConfig.get}
-          frets={fretConfig.frets}
-          flavor={fretConfig.flavor}
-        />
-      )}
-      {kind === "Drums" && <Drums />}
-      {kind === "Flute" && <Flute />}
-    </div>
+  useEffect(() => {
+    if (!fs) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFs(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [fs]);
+
+  const content = (
+    <motion.div
+      key={kind}
+      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="relative glass-strong rounded-3xl p-3 sm:p-5 overflow-hidden"
+      style={{
+        boxShadow: `0 0 60px ${mood.glow}, 0 0 0 1px oklch(1 0 0 / 0.08)`,
+        backgroundImage: mood.bg,
+      }}
+    >
+      {/* stage halo */}
+      <div
+        className={`pointer-events-none absolute -inset-1 bg-gradient-to-b ${mood.halo} blur-2xl opacity-70`}
+        aria-hidden
+      />
+      <div className="relative">
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground truncate">
+            {kind} · <span className="neon-text font-semibold">{mood.label}</span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {kind === "Piano" && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={sustain}
+                  onChange={(e) => setSustain(e.target.checked)}
+                  className="accent-primary"
+                />
+                Sustain
+              </label>
+            )}
+            <button
+              onClick={() => setFs((v) => !v)}
+              aria-label={fs ? "Exit fullscreen" : "Enter performance mode"}
+              className="h-8 w-8 grid place-items-center rounded-full glass hover:bg-white/5 transition"
+            >
+              {fs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {kind === "Piano" && <Piano sustain={sustain} />}
+        {(kind === "Guitar" || kind === "Sitar" || kind === "Veena" || kind === "Violin") && (
+          <Fretboard
+            tuning={fretConfig.tuning}
+            get={fretConfig.get}
+            frets={fretConfig.frets}
+            flavor={fretConfig.flavor}
+          />
+        )}
+        {kind === "Drums" && <Drums />}
+        {kind === "Flute" && <Flute />}
+      </div>
+    </motion.div>
+  );
+
+  return (
+    <>
+      {!fs && content}
+      <AnimatePresence>
+        {fs && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-background/95 backdrop-blur-2xl p-3 sm:p-6 overflow-auto"
+            style={{ backgroundImage: mood.bg }}
+          >
+            <div className="mx-auto max-w-5xl">{content}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
