@@ -609,6 +609,29 @@ const MOODS: Record<InstrumentKey, { label: string; glow: string; halo: string; 
 export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
   const [sustain, setSustain] = useState(false);
   const [fs, setFs] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loadCounts, setLoadCounts] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [ready, setReady] = useState(false);
+
+  // Preload samples whenever the active instrument changes
+  useEffect(() => {
+    let cancelled = false;
+    setReady(false);
+    setLoadProgress(0);
+    setLoadCounts({ done: 0, total: 0 });
+    ensureAudio().then(() =>
+      preloadInstrument(kind, (ratio, done, total) => {
+        if (cancelled) return;
+        setLoadProgress(ratio);
+        setLoadCounts({ done, total });
+      }).then(() => {
+        if (!cancelled) setReady(true);
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [kind]);
 
   const fretConfig = useMemo(() => {
     if (kind === "Sitar") return { tuning: SITAR_TUNING, get: getSitar, flavor: "sitar" as const, frets: 6 };
