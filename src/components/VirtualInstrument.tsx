@@ -10,6 +10,7 @@ import {
   getSitar,
   getVeena,
   triggerDrum,
+  preloadInstrument,
 } from "@/lib/audio-engine";
 import type { InstrumentKey } from "@/lib/instruments";
 
