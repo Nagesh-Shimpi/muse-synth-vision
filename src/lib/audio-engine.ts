@@ -4,7 +4,14 @@ let initialized = false;
 let masterVol: Tone.Volume | null = null;
 let analyser: Tone.Analyser | null = null;
 
-const synthCache = new Map<string, Tone.PolySynth | Tone.MembraneSynth | Tone.MetalSynth | Tone.NoiseSynth | Tone.PluckSynth>();
+type AnyInst = {
+  triggerAttackRelease: (n: string, d: string | number) => void;
+  releaseAll?: () => void;
+  dispose?: () => void;
+};
+
+const cache = new Map<string, AnyInst>();
+const loaded = new Map<string, boolean>();
 
 export async function ensureAudio() {
   if (Tone.getContext().state !== "running") await Tone.start();
@@ -17,146 +24,222 @@ export async function ensureAudio() {
 }
 
 export function getAnalyser() { return analyser; }
+export function setMasterVolume(db: number) { if (masterVol) masterVol.volume.rampTo(db, 0.05); }
+export function setMuted(muted: boolean) { if (masterVol) masterVol.mute = muted; }
 
-export function setMasterVolume(db: number) {
-  if (masterVol) masterVol.volume.rampTo(db, 0.05);
-}
-export function setMuted(muted: boolean) {
-  if (masterVol) masterVol.mute = muted;
+function out() { return masterVol ?? Tone.getDestination(); }
+
+/* -------------------------------------------------------------------------- */
+/*  Real instrument samplers (with graceful synth fallback)                   */
+/* -------------------------------------------------------------------------- */
+
+// Salamander Grand Piano (official Tone.js sample set)
+const PIANO_BASE = "https://tonejs.github.io/audio/salamander/";
+const PIANO_URLS: Record<string, string> = {
+  A1: "A1.mp3", A2: "A2.mp3", A3: "A3.mp3", A4: "A4.mp3",
+  A5: "A5.mp3", A6: "A6.mp3", C2: "C2.mp3", C3: "C3.mp3",
+  C4: "C4.mp3", C5: "C5.mp3", C6: "C6.mp3",
+  "D#3": "Ds3.mp3", "D#4": "Ds4.mp3", "D#5": "Ds5.mp3",
+  "F#2": "Fs2.mp3", "F#3": "Fs3.mp3", "F#4": "Fs4.mp3", "F#5": "Fs5.mp3",
+};
+
+// nbrosowsky/tonejs-instruments — CDN of real recorded samples
+const NBR_BASE = "https://nbrosowsky.github.io/tonejs-instruments/samples/";
+
+function buildSampler(
+  key: string,
+  baseUrl: string,
+  urls: Record<string, string>,
+  reverbDecay: number,
+  reverbWet: number,
+  fallback: () => AnyInst,
+): AnyInst {
+  if (cache.has(key)) return cache.get(key)!;
+  let inst: AnyInst;
+  try {
+    const sampler = new Tone.Sampler({
+      urls,
+      baseUrl,
+      release: 1.2,
+      onload: () => loaded.set(key, true),
+      onerror: () => {
+        // Swap to fallback on load failure
+        const fb = fallback();
+        cache.set(key, fb);
+      },
+    });
+    const rev = new Tone.Reverb({ decay: reverbDecay, wet: reverbWet });
+    sampler.chain(rev, out());
+    inst = {
+      triggerAttackRelease: (n, d) => {
+        if (loaded.get(key)) sampler.triggerAttackRelease(n, d);
+        else cache.get(key + ":_fb")?.triggerAttackRelease(n, d);
+      },
+      releaseAll: () => sampler.releaseAll?.(),
+      dispose: () => { sampler.dispose(); rev.dispose(); },
+    };
+    // Pre-build a synth fallback that fires while samples are still loading
+    cache.set(key + ":_fb", fallback());
+  } catch {
+    inst = fallback();
+  }
+  cache.set(key, inst);
+  return inst;
 }
 
-function out() {
-  return masterVol ?? Tone.getDestination();
-}
-
-export function getPiano() {
-  if (!synthCache.has("piano")) {
+export function getPiano(): AnyInst {
+  return buildSampler("piano", PIANO_BASE, PIANO_URLS, 2.2, 0.22, () => {
     const s = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: "triangle" },
       envelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 1.2 },
     });
     const rev = new Tone.Reverb({ decay: 2.2, wet: 0.25 });
     s.chain(rev, out());
-    synthCache.set("piano", s);
-  }
-  return synthCache.get("piano") as Tone.PolySynth;
+    return s as unknown as AnyInst;
+  });
 }
 
-// Polyphonic pluck via round-robin voice pool (PluckSynth is monophonic).
-function makePool(
-  key: string,
-  voices: number,
-  factory: () => Tone.PluckSynth,
-  reverbDecay: number,
-  reverbWet: number,
-) {
-  if (!synthCache.has(key)) {
-    const rev = new Tone.Reverb({ decay: reverbDecay, wet: reverbWet });
-    rev.connect(out());
-    const pool: Tone.PluckSynth[] = [];
-    for (let i = 0; i < voices; i++) {
-      const s = factory();
-      s.connect(rev);
-      pool.push(s);
-    }
-    let idx = 0;
-    const facade = {
-      triggerAttackRelease: (n: string, d: string) => {
-        pool[idx].triggerAttackRelease(n, d);
-        idx = (idx + 1) % pool.length;
-      },
-      dispose: () => pool.forEach((p) => p.dispose()),
-    } as unknown as Tone.PluckSynth;
-    synthCache.set(key, facade);
-  }
-  return synthCache.get(key) as Tone.PluckSynth;
-}
-
-export function getGuitar() {
-  return makePool(
+export function getGuitar(): AnyInst {
+  return buildSampler(
     "guitar",
-    8,
-    () => new Tone.PluckSynth({ attackNoise: 1, dampening: 4000, resonance: 0.85 }),
+    NBR_BASE + "guitar-acoustic/",
+    {
+      A2: "A2.mp3", A3: "A3.mp3", A4: "A4.mp3",
+      E2: "E2.mp3", E3: "E3.mp3", E4: "E4.mp3",
+      D3: "D3.mp3", D4: "D4.mp3",
+      G3: "G3.mp3", G4: "G4.mp3",
+      B3: "B3.mp3", B4: "B4.mp3",
+      C4: "C4.mp3", C5: "C5.mp3",
+    },
     1.6,
     0.2,
+    () => {
+      const rev = new Tone.Reverb({ decay: 1.6, wet: 0.2 });
+      rev.connect(out());
+      const pool: Tone.PluckSynth[] = [];
+      for (let i = 0; i < 8; i++) {
+        const p = new Tone.PluckSynth({ attackNoise: 1, dampening: 4000, resonance: 0.85 });
+        p.connect(rev);
+        pool.push(p);
+      }
+      let i = 0;
+      return {
+        triggerAttackRelease: (n, d) => { pool[i].triggerAttackRelease(n, d); i = (i + 1) % pool.length; },
+        dispose: () => pool.forEach((p) => p.dispose()),
+      };
+    },
   );
 }
 
-export function getViolin() {
-  if (!synthCache.has("violin")) {
-    const s = new Tone.PolySynth(Tone.AMSynth, {
-      harmonicity: 1.5,
-      envelope: { attack: 0.25, decay: 0.3, sustain: 0.9, release: 1 },
-    });
-    const rev = new Tone.Reverb({ decay: 2.8, wet: 0.35 });
-    s.chain(rev, out());
-    synthCache.set("violin", s);
-  }
-  return synthCache.get("violin") as Tone.PolySynth;
+export function getViolin(): AnyInst {
+  return buildSampler(
+    "violin",
+    NBR_BASE + "violin/",
+    {
+      A3: "A3.mp3", A4: "A4.mp3", A5: "A5.mp3",
+      C4: "C4.mp3", C5: "C5.mp3",
+      E4: "E4.mp3", E5: "E5.mp3",
+      G3: "G3.mp3", G4: "G4.mp3",
+    },
+    2.8,
+    0.32,
+    () => {
+      const s = new Tone.PolySynth(Tone.AMSynth, {
+        harmonicity: 1.5,
+        envelope: { attack: 0.25, decay: 0.3, sustain: 0.9, release: 1 },
+      });
+      const rev = new Tone.Reverb({ decay: 2.8, wet: 0.35 });
+      s.chain(rev, out());
+      return s as unknown as AnyInst;
+    },
+  );
 }
 
-export function getFlute() {
-  if (!synthCache.has("flute")) {
-    const s = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.15, decay: 0.1, sustain: 0.9, release: 0.6 },
-    });
-    const rev = new Tone.Reverb({ decay: 2, wet: 0.3 });
-    s.chain(rev, out());
-    synthCache.set("flute", s);
+export function getFlute(): AnyInst {
+  return buildSampler(
+    "flute",
+    NBR_BASE + "flute/",
+    {
+      A4: "A4.mp3", A5: "A5.mp3", C4: "C4.mp3", C5: "C5.mp3",
+      E4: "E4.mp3", E5: "E5.mp3",
+    },
+    2,
+    0.28,
+    () => {
+      const s = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.15, decay: 0.1, sustain: 0.9, release: 0.6 },
+      });
+      const rev = new Tone.Reverb({ decay: 2, wet: 0.3 });
+      s.chain(rev, out());
+      return s as unknown as AnyInst;
+    },
+  );
+}
+
+// Indian classical: keep richly-tuned PluckSynth pool — no clean free sample set
+function makePool(key: string, voices: number, factory: () => Tone.PluckSynth, decay: number, wet: number): AnyInst {
+  if (cache.has(key)) return cache.get(key)!;
+  const rev = new Tone.Reverb({ decay, wet });
+  rev.connect(out());
+  const pool: Tone.PluckSynth[] = [];
+  for (let i = 0; i < voices; i++) {
+    const s = factory();
+    s.connect(rev);
+    pool.push(s);
   }
-  return synthCache.get("flute") as Tone.PolySynth;
+  let i = 0;
+  const inst: AnyInst = {
+    triggerAttackRelease: (n, d) => { pool[i].triggerAttackRelease(n, d); i = (i + 1) % pool.length; },
+    dispose: () => pool.forEach((p) => p.dispose()),
+  };
+  cache.set(key, inst);
+  return inst;
 }
 
 export function getSitar() {
-  return makePool(
-    "sitar",
-    10,
+  return makePool("sitar", 10,
     () => new Tone.PluckSynth({ attackNoise: 2.5, dampening: 2500, resonance: 0.95 }),
-    3.2,
-    0.4,
-  );
+    3.2, 0.4);
 }
-
 export function getVeena() {
-  return makePool(
-    "veena",
-    10,
+  return makePool("veena", 10,
     () => new Tone.PluckSynth({ attackNoise: 1.8, dampening: 1800, resonance: 0.97 }),
-    3.6,
-    0.45,
-  );
+    3.6, 0.45);
 }
 
 export function triggerDrum(pad: "kick" | "snare" | "hat" | "tom") {
-  const cacheKey = `drum-${pad}`;
-  if (!synthCache.has(cacheKey)) {
+  const k = `drum-${pad}`;
+  if (!cache.has(k)) {
+    let inst: AnyInst;
     if (pad === "kick") {
       const s = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 6 });
       s.connect(out());
-      synthCache.set(cacheKey, s);
+      inst = { triggerAttackRelease: (n, d) => s.triggerAttackRelease(n, d), dispose: () => s.dispose() };
     } else if (pad === "tom") {
       const s = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 3 });
       s.connect(out());
-      synthCache.set(cacheKey, s);
+      inst = { triggerAttackRelease: (n, d) => s.triggerAttackRelease(n, d), dispose: () => s.dispose() };
     } else if (pad === "snare") {
       const s = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.18, sustain: 0 } });
       s.connect(out());
-      synthCache.set(cacheKey, s);
+      inst = { triggerAttackRelease: (_n, d) => s.triggerAttackRelease(d), dispose: () => s.dispose() };
     } else {
       const s = new Tone.MetalSynth({ envelope: { attack: 0.001, decay: 0.1, release: 0.05 }, harmonicity: 5.1, resonance: 4000 });
       s.connect(out());
-      synthCache.set(cacheKey, s);
+      inst = { triggerAttackRelease: (n, d) => s.triggerAttackRelease(n, d), dispose: () => s.dispose() };
     }
+    cache.set(k, inst);
   }
-  const inst = synthCache.get(cacheKey)!;
-  if (pad === "kick") (inst as Tone.MembraneSynth).triggerAttackRelease("C2", "8n");
-  else if (pad === "tom") (inst as Tone.MembraneSynth).triggerAttackRelease("A2", "8n");
-  else if (pad === "snare") (inst as Tone.NoiseSynth).triggerAttackRelease("16n");
-  else (inst as Tone.MetalSynth).triggerAttackRelease("C5", "32n");
+  const inst = cache.get(k)!;
+  if (pad === "kick") inst.triggerAttackRelease("C2", "8n");
+  else if (pad === "tom") inst.triggerAttackRelease("A2", "8n");
+  else if (pad === "snare") inst.triggerAttackRelease("C2", "16n");
+  else inst.triggerAttackRelease("C5", "32n");
 }
 
 export function disposeAll() {
-  synthCache.forEach((s) => s.dispose());
-  synthCache.clear();
+  cache.forEach((s) => s.dispose?.());
+  cache.clear();
+  loaded.clear();
 }
