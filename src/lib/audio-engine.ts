@@ -1,4 +1,5 @@
 import * as Tone from "tone";
+import type { InstrumentKey } from "@/lib/instruments";
 
 let initialized = false;
 let masterVol: Tone.Volume | null = null;
