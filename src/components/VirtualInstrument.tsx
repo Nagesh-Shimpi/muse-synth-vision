@@ -251,23 +251,51 @@ function Fretboard({
           ? "from-rose-300 to-fuchsia-500"
           : "from-cyan-300 to-fuchsia-400";
 
-  const lastTriggered = useRef<string | null>(null);
-  const handleSwipe = useCallback(
+  // Per-finger tracking: each active pointer remembers its last cell + string,
+  // so simultaneous fingers (chord pressing + strumming) never interfere.
+  const fingerCell = useRef<Map<number, string>>(new Map());
+  const fingerString = useRef<Map<number, string>>(new Map());
+
+  const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.buttons === 0 && e.pointerType !== "touch") return;
       const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
       const cell = el?.closest<HTMLElement>("[data-fret-cell]");
       if (!cell) return;
       const key = cell.dataset.cellKey!;
       const note = cell.dataset.note!;
-      if (lastTriggered.current === key) return;
-      lastTriggered.current = key;
+      const stringId = cell.dataset.stringId!;
+      fingerCell.current.set(e.pointerId, key);
+      fingerString.current.set(e.pointerId, stringId);
       pluck(key, note, duration);
     },
     [pluck, duration],
   );
-  const resetSwipe = () => {
-    lastTriggered.current = null;
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // Only react to fingers actually pressed down on this surface
+      if (!fingerCell.current.has(e.pointerId)) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cell = el?.closest<HTMLElement>("[data-fret-cell]");
+      if (!cell) return;
+      const key = cell.dataset.cellKey!;
+      const note = cell.dataset.note!;
+      const stringId = cell.dataset.stringId!;
+      const prevKey = fingerCell.current.get(e.pointerId);
+      const prevString = fingerString.current.get(e.pointerId);
+      // Re-trigger when this finger crosses to a new string (strum) or a new fret on its string.
+      if (prevKey === key) return;
+      fingerCell.current.set(e.pointerId, key);
+      fingerString.current.set(e.pointerId, stringId);
+      // Avoid double-triggering the SAME cell another finger just hit.
+      pluck(key, note, prevString !== stringId ? duration : duration);
+    },
+    [pluck, duration],
+  );
+
+  const releaseFinger = (e: React.PointerEvent<HTMLDivElement>) => {
+    fingerCell.current.delete(e.pointerId);
+    fingerString.current.delete(e.pointerId);
   };
 
   return (
