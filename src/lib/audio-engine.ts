@@ -1,4 +1,5 @@
 import * as Tone from "tone";
+import type { InstrumentKey } from "@/lib/instruments";
 
 let initialized = false;
 let masterVol: Tone.Volume | null = null;
@@ -242,4 +243,74 @@ export function disposeAll() {
   cache.forEach((s) => s.dispose?.());
   cache.clear();
   loaded.clear();
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Preloader — fetches sample URLs in parallel and reports progress.         */
+/*  Browser cache means Tone.Sampler reuses the same downloads instantly.     */
+/* -------------------------------------------------------------------------- */
+
+const PRELOAD_REGISTRY: Partial<Record<InstrumentKey, { base: string; urls: string[]; warm: () => void }>> = {
+  Piano: {
+    base: PIANO_BASE,
+    urls: Object.values(PIANO_URLS),
+    warm: () => getPiano(),
+  },
+  Guitar: {
+    base: NBR_BASE + "guitar-acoustic/",
+    urls: ["A2.mp3","A3.mp3","A4.mp3","E2.mp3","E3.mp3","E4.mp3","D3.mp3","D4.mp3","G3.mp3","G4.mp3","B3.mp3","B4.mp3","C4.mp3","C5.mp3"],
+    warm: () => getGuitar(),
+  },
+  Violin: {
+    base: NBR_BASE + "violin/",
+    urls: ["A3.mp3","A4.mp3","A5.mp3","C4.mp3","C5.mp3","E4.mp3","E5.mp3","G3.mp3","G4.mp3"],
+    warm: () => getViolin(),
+  },
+  Flute: {
+    base: NBR_BASE + "flute/",
+    urls: ["A4.mp3","A5.mp3","C4.mp3","C5.mp3","E4.mp3","E5.mp3"],
+    warm: () => getFlute(),
+  },
+};
+
+const preloadCache = new Map<InstrumentKey, Promise<void>>();
+
+export function preloadInstrument(
+  kind: InstrumentKey,
+  onProgress?: (ratio: number, loaded: number, total: number) => void,
+): Promise<void> {
+  const cfg = PRELOAD_REGISTRY[kind];
+  if (!cfg) {
+    // No remote samples (Sitar, Veena, Drums) — instant ready
+    onProgress?.(1, 0, 0);
+    return Promise.resolve();
+  }
+  // Kick off Tone.Sampler instantiation so it can ingest the cached bytes.
+  cfg.warm();
+
+  if (preloadCache.has(kind)) {
+    const cached = preloadCache.get(kind)!;
+    // Replay completion for late subscribers
+    cached.then(() => onProgress?.(1, cfg.urls.length, cfg.urls.length));
+    return cached;
+  }
+
+  const total = cfg.urls.length;
+  let done = 0;
+  const p = Promise.all(
+    cfg.urls.map((u) =>
+      fetch(cfg.base + u, { cache: "force-cache" })
+        .then((r) => r.arrayBuffer())
+        .catch(() => null)
+        .finally(() => {
+          done++;
+          onProgress?.(done / total, done, total);
+        }),
+    ),
+  ).then(async () => {
+    // Wait for Tone to finish decoding all buffers
+    await Tone.loaded();
+  });
+  preloadCache.set(kind, p);
+  return p;
 }

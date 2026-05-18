@@ -10,6 +10,7 @@ import {
   getSitar,
   getVeena,
   triggerDrum,
+  preloadInstrument,
 } from "@/lib/audio-engine";
 import type { InstrumentKey } from "@/lib/instruments";
 
@@ -608,6 +609,29 @@ const MOODS: Record<InstrumentKey, { label: string; glow: string; halo: string; 
 export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
   const [sustain, setSustain] = useState(false);
   const [fs, setFs] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loadCounts, setLoadCounts] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [ready, setReady] = useState(false);
+
+  // Preload samples whenever the active instrument changes
+  useEffect(() => {
+    let cancelled = false;
+    setReady(false);
+    setLoadProgress(0);
+    setLoadCounts({ done: 0, total: 0 });
+    ensureAudio().then(() =>
+      preloadInstrument(kind, (ratio, done, total) => {
+        if (cancelled) return;
+        setLoadProgress(ratio);
+        setLoadCounts({ done, total });
+      }).then(() => {
+        if (!cancelled) setReady(true);
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [kind]);
 
   const fretConfig = useMemo(() => {
     if (kind === "Sitar") return { tuning: SITAR_TUNING, get: getSitar, flavor: "sitar" as const, frets: 6 };
@@ -675,17 +699,49 @@ export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
           </div>
         </div>
 
-        {kind === "Piano" && <Piano sustain={sustain} />}
-        {(kind === "Guitar" || kind === "Sitar" || kind === "Veena" || kind === "Violin") && (
-          <Fretboard
-            tuning={fretConfig.tuning}
-            get={fretConfig.get}
-            frets={fretConfig.frets}
-            flavor={fretConfig.flavor}
-          />
-        )}
-        {kind === "Drums" && <Drums />}
-        {kind === "Flute" && <Flute />}
+        <div className={ready ? "" : "pointer-events-none opacity-40 blur-[1px] transition-all"}>
+          {kind === "Piano" && <Piano sustain={sustain} />}
+          {(kind === "Guitar" || kind === "Sitar" || kind === "Veena" || kind === "Violin") && (
+            <Fretboard
+              tuning={fretConfig.tuning}
+              get={fretConfig.get}
+              frets={fretConfig.frets}
+              flavor={fretConfig.flavor}
+            />
+          )}
+          {kind === "Drums" && <Drums />}
+          {kind === "Flute" && <Flute />}
+        </div>
+
+        <AnimatePresence>
+          {!ready && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-20 grid place-items-center rounded-3xl bg-background/70 backdrop-blur-md"
+            >
+              <div className="w-72 max-w-[85%] text-center space-y-3">
+                <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Loading {kind} samples
+                </div>
+                <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <motion.div
+                    className="h-full bg-[image:var(--gradient-neon)]"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.max(4, Math.round(loadProgress * 100))}%` }}
+                    transition={{ ease: "easeOut", duration: 0.25 }}
+                  />
+                </div>
+                <div className="text-[11px] text-muted-foreground tabular-nums">
+                  {loadCounts.total > 0
+                    ? `${loadCounts.done} / ${loadCounts.total} samples · ${Math.round(loadProgress * 100)}%`
+                    : "Warming up audio engine…"}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
