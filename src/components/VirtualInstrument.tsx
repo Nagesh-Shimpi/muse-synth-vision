@@ -251,23 +251,51 @@ function Fretboard({
           ? "from-rose-300 to-fuchsia-500"
           : "from-cyan-300 to-fuchsia-400";
 
-  const lastTriggered = useRef<string | null>(null);
-  const handleSwipe = useCallback(
+  // Per-finger tracking: each active pointer remembers its last cell + string,
+  // so simultaneous fingers (chord pressing + strumming) never interfere.
+  const fingerCell = useRef<Map<number, string>>(new Map());
+  const fingerString = useRef<Map<number, string>>(new Map());
+
+  const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.buttons === 0 && e.pointerType !== "touch") return;
       const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
       const cell = el?.closest<HTMLElement>("[data-fret-cell]");
       if (!cell) return;
       const key = cell.dataset.cellKey!;
       const note = cell.dataset.note!;
-      if (lastTriggered.current === key) return;
-      lastTriggered.current = key;
+      const stringId = cell.dataset.stringId!;
+      fingerCell.current.set(e.pointerId, key);
+      fingerString.current.set(e.pointerId, stringId);
       pluck(key, note, duration);
     },
     [pluck, duration],
   );
-  const resetSwipe = () => {
-    lastTriggered.current = null;
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // Only react to fingers actually pressed down on this surface
+      if (!fingerCell.current.has(e.pointerId)) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cell = el?.closest<HTMLElement>("[data-fret-cell]");
+      if (!cell) return;
+      const key = cell.dataset.cellKey!;
+      const note = cell.dataset.note!;
+      const stringId = cell.dataset.stringId!;
+      const prevKey = fingerCell.current.get(e.pointerId);
+      const prevString = fingerString.current.get(e.pointerId);
+      // Re-trigger when this finger crosses to a new string (strum) or a new fret on its string.
+      if (prevKey === key) return;
+      fingerCell.current.set(e.pointerId, key);
+      fingerString.current.set(e.pointerId, stringId);
+      // Avoid double-triggering the SAME cell another finger just hit.
+      pluck(key, note, prevString !== stringId ? duration : duration);
+    },
+    [pluck, duration],
+  );
+
+  const releaseFinger = (e: React.PointerEvent<HTMLDivElement>) => {
+    fingerCell.current.delete(e.pointerId);
+    fingerString.current.delete(e.pointerId);
   };
 
   return (
@@ -284,9 +312,11 @@ function Fretboard({
       <div
         className="rounded-2xl glass-strong p-3 sm:p-4 overflow-x-auto"
         style={{ touchAction: "none" }}
-        onPointerMove={handleSwipe}
-        onPointerUp={resetSwipe}
-        onPointerLeave={resetSwipe}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={releaseFinger}
+        onPointerCancel={releaseFinger}
+        onPointerLeave={releaseFinger}
       >
         <div className="min-w-[480px]">
           {tuning.map((s) => (
@@ -301,22 +331,15 @@ function Fretboard({
                 const key = `${s.open}-${fret}`;
                 const isActive = active.has(key);
                 return (
-                  <button
+                  <div
                     key={key}
                     data-fret-cell="1"
                     data-note={note}
                     data-cell-key={key}
-                    onPointerDown={(e) => {
-                      // do NOT capture: we want pointerenter on siblings for swipe-strum
-                      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-                      pluck(key, note, duration);
-                    }}
-                    onPointerEnter={(e) => {
-                      if (e.buttons > 0) pluck(key, note, duration);
-                    }}
-                    className={`relative z-10 flex-1 h-9 sm:h-10 rounded-md border border-white/10 text-[10px] font-medium transition-all active:scale-95 ${
+                    data-string-id={s.open}
+                    className={`relative z-10 flex-1 h-9 sm:h-10 rounded-md border border-white/10 text-[10px] font-medium transition-all grid place-items-center cursor-pointer select-none ${
                       fret === 0 ? "bg-white/5" : "bg-white/[0.03] hover:bg-white/10"
-                    }`}
+                    } ${isActive ? "scale-[0.97]" : ""}`}
                   >
                     {/* vibration glow */}
                     {isActive && (
@@ -324,11 +347,11 @@ function Fretboard({
                         initial={{ opacity: 0.9, scaleX: 1 }}
                         animate={{ opacity: 0, scaleX: 1.15 }}
                         transition={{ duration: 0.6 }}
-                        className={`absolute inset-0 rounded-md bg-gradient-to-r ${accent} opacity-60`}
+                        className={`absolute inset-0 rounded-md bg-gradient-to-r ${accent} opacity-60 pointer-events-none`}
                       />
                     )}
-                    <span className="relative opacity-70">{note}</span>
-                  </button>
+                    <span className="relative opacity-70 pointer-events-none">{note}</span>
+                  </div>
                 );
               })}
             </div>
