@@ -312,9 +312,11 @@ function Fretboard({
       <div
         className="rounded-2xl glass-strong p-3 sm:p-4 overflow-x-auto"
         style={{ touchAction: "none" }}
-        onPointerMove={handleSwipe}
-        onPointerUp={resetSwipe}
-        onPointerLeave={resetSwipe}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={releaseFinger}
+        onPointerCancel={releaseFinger}
+        onPointerLeave={releaseFinger}
       >
         <div className="min-w-[480px]">
           {tuning.map((s) => (
@@ -329,22 +331,15 @@ function Fretboard({
                 const key = `${s.open}-${fret}`;
                 const isActive = active.has(key);
                 return (
-                  <button
+                  <div
                     key={key}
                     data-fret-cell="1"
                     data-note={note}
                     data-cell-key={key}
-                    onPointerDown={(e) => {
-                      // do NOT capture: we want pointerenter on siblings for swipe-strum
-                      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-                      pluck(key, note, duration);
-                    }}
-                    onPointerEnter={(e) => {
-                      if (e.buttons > 0) pluck(key, note, duration);
-                    }}
-                    className={`relative z-10 flex-1 h-9 sm:h-10 rounded-md border border-white/10 text-[10px] font-medium transition-all active:scale-95 ${
+                    data-string-id={s.open}
+                    className={`relative z-10 flex-1 h-9 sm:h-10 rounded-md border border-white/10 text-[10px] font-medium transition-all grid place-items-center cursor-pointer select-none ${
                       fret === 0 ? "bg-white/5" : "bg-white/[0.03] hover:bg-white/10"
-                    }`}
+                    } ${isActive ? "scale-[0.97]" : ""}`}
                   >
                     {/* vibration glow */}
                     {isActive && (
@@ -352,11 +347,11 @@ function Fretboard({
                         initial={{ opacity: 0.9, scaleX: 1 }}
                         animate={{ opacity: 0, scaleX: 1.15 }}
                         transition={{ duration: 0.6 }}
-                        className={`absolute inset-0 rounded-md bg-gradient-to-r ${accent} opacity-60`}
+                        className={`absolute inset-0 rounded-md bg-gradient-to-r ${accent} opacity-60 pointer-events-none`}
                       />
                     )}
-                    <span className="relative opacity-70">{note}</span>
-                  </button>
+                    <span className="relative opacity-70 pointer-events-none">{note}</span>
+                  </div>
                 );
               })}
             </div>
