@@ -3,7 +3,10 @@ import type { InstrumentKey } from "@/lib/instruments";
 
 let initialized = false;
 let masterVol: Tone.Volume | null = null;
+let limiter: Tone.Limiter | null = null;
 let analyser: Tone.Analyser | null = null;
+let fft: Tone.FFT | null = null;
+let contextTuned = false;
 
 type AnyInst = {
   triggerAttackRelease: (n: string, d: string | number) => void;
@@ -14,17 +17,48 @@ type AnyInst = {
 const cache = new Map<string, AnyInst>();
 const loaded = new Map<string, boolean>();
 
+function tuneContextOnce() {
+  if (contextTuned) return;
+  contextTuned = true;
+  try {
+    // Low-latency mobile-friendly scheduling
+    const ctx = Tone.getContext();
+    ctx.lookAhead = 0.02; // 20ms scheduling window — tight but reliable on mobile
+    // @ts-expect-error: raw AudioContext flag
+    if (ctx.rawContext?.audioWorklet) {/* keep audioWorklet path */}
+  } catch { /* noop */ }
+}
+
 export async function ensureAudio() {
-  if (Tone.getContext().state !== "running") await Tone.start();
+  tuneContextOnce();
+  if (Tone.getContext().state !== "running") {
+    try { await Tone.start(); } catch { /* requires user gesture */ }
+  }
   if (!initialized) {
-    masterVol = new Tone.Volume(-6).toDestination();
+    // Master chain: Volume -> Limiter -> Destination (prevents clipping)
+    masterVol = new Tone.Volume(-4);
+    limiter = new Tone.Limiter(-1);
+    masterVol.connect(limiter);
+    limiter.toDestination();
     analyser = new Tone.Analyser("waveform", 256);
+    fft = new Tone.FFT(64);
     masterVol.connect(analyser);
+    masterVol.connect(fft);
     initialized = true;
+
+    // Auto-resume after the OS suspends the tab (mobile lockscreen, tab switch)
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && Tone.getContext().state !== "running") {
+          Tone.getContext().resume().catch(() => {});
+        }
+      });
+    }
   }
 }
 
 export function getAnalyser() { return analyser; }
+export function getFFT() { return fft; }
 export function setMasterVolume(db: number) { if (masterVol) masterVol.volume.rampTo(db, 0.05); }
 export function setMuted(muted: boolean) { if (masterVol) masterVol.mute = muted; }
 
