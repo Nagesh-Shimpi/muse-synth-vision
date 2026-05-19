@@ -227,7 +227,7 @@ function noteAt(open: string, fret: number): string {
   return `${NOTE_ORDER[newIdx]}${newOct}`;
 }
 
-function Fretboard({
+const Fretboard = memo(function Fretboard({
   tuning,
   get,
   frets = 5,
