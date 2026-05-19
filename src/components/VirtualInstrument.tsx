@@ -398,7 +398,7 @@ const DRUM_PADS = [
   { id: "hat", label: "Crash", key: "N", alt: true },
 ] as const;
 
-function Drums() {
+const Drums = memo(function Drums() {
   const { active, on, off } = useActive();
   const [pulse, setPulse] = useState(0);
   const [velocities, setVelocities] = useState<Record<string, number>>({});
