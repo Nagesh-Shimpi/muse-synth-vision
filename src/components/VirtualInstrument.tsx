@@ -580,8 +580,58 @@ const Flute = memo(function Flute() {
 });
 
 /* -------------------------------------------------------------------------- */
+/*  Audio-reactive halo (fullscreen ambience)                                 */
+/* -------------------------------------------------------------------------- */
+
+const ReactiveHalo = memo(function ReactiveHalo({ color }: { color: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const fft = getFFT();
+    if (!fft) return;
+    let raf = 0;
+    let bass = 0, treble = 0;
+    const tick = () => {
+      const v = fft.getValue() as Float32Array;
+      // bass = avg of lowest 8 bins, treble = avg of top 16 bins (values are dB, -100..0)
+      let b = 0, t = 0;
+      for (let i = 0; i < 8; i++) b += v[i] ?? -100;
+      for (let i = v.length - 16; i < v.length; i++) t += v[i] ?? -100;
+      const bN = Math.max(0, (b / 8 + 100) / 100);
+      const tN = Math.max(0, (t / 16 + 100) / 100);
+      // smooth (low-pass) to avoid layout thrash
+      bass += (bN - bass) * 0.25;
+      treble += (tN - treble) * 0.3;
+      const el = ref.current;
+      if (el) {
+        const scale = 1 + bass * 0.35;
+        const blur = 40 + treble * 60;
+        const op = 0.35 + bass * 0.55;
+        el.style.transform = `scale(${scale.toFixed(3)})`;
+        el.style.filter = `blur(${blur.toFixed(1)}px)`;
+        el.style.opacity = op.toFixed(3);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      className="pointer-events-none absolute inset-0 -z-10"
+      style={{
+        background: `radial-gradient(50% 40% at 50% 50%, ${color}, transparent 70%)`,
+        willChange: "transform, filter, opacity",
+      }}
+    />
+  );
+});
+
+/* -------------------------------------------------------------------------- */
 /*  Root                                                                      */
 /* -------------------------------------------------------------------------- */
+
 
 const MOODS: Record<InstrumentKey, { label: string; glow: string; halo: string; bg: string }> = {
   Piano: {
