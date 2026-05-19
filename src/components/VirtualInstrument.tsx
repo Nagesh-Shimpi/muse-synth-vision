@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Maximize2, Minimize2 } from "lucide-react";
 import {
@@ -11,6 +11,7 @@ import {
   getVeena,
   triggerDrum,
   preloadInstrument,
+  getFFT,
 } from "@/lib/audio-engine";
 import type { InstrumentKey } from "@/lib/instruments";
 
@@ -68,7 +69,7 @@ function buildPianoKeys(): PianoKey[] {
   return keys;
 }
 
-function Piano({ sustain }: { sustain: boolean }) {
+const Piano = memo(function Piano({ sustain }: { sustain: boolean }) {
   const { active, on, off } = useActive();
   const keys = useMemo(buildPianoKeys, []);
   const whites = keys.filter((k) => !k.black);
@@ -98,28 +99,51 @@ function Piano({ sustain }: { sustain: boolean }) {
 
   const whiteIndex = (i: number) => keys.slice(0, i).filter((k) => !k.black).length;
 
+  // Per-finger tracking — enables glissando + true two-hand chords on mobile
+  const fingerNote = useRef<Map<number, string>>(new Map());
+
+  const hitFromPoint = useCallback(
+    (pointerId: number, x: number, y: number) => {
+      const el = document.elementFromPoint(x, y) as HTMLElement | null;
+      const k = el?.closest<HTMLElement>("[data-piano-key]");
+      if (!k) return;
+      const note = k.dataset.note!;
+      if (fingerNote.current.get(pointerId) === note) return;
+      fingerNote.current.set(pointerId, note);
+      play(note);
+    },
+    [play],
+  );
+
   return (
-    <div className="w-full overflow-x-auto pb-2">
+    <div className="w-full overflow-x-auto pb-2" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
       <div
         className="relative mx-auto select-none"
         style={{ width: `${whites.length * 48}px`, minWidth: "100%", touchAction: "none" }}
+        onPointerDown={(e) => hitFromPoint(e.pointerId, e.clientX, e.clientY)}
+        onPointerMove={(e) => {
+          if (!fingerNote.current.has(e.pointerId)) return;
+          hitFromPoint(e.pointerId, e.clientX, e.clientY);
+        }}
+        onPointerUp={(e) => fingerNote.current.delete(e.pointerId)}
+        onPointerCancel={(e) => fingerNote.current.delete(e.pointerId)}
+        onPointerLeave={(e) => fingerNote.current.delete(e.pointerId)}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {/* whites */}
         <div className="flex gap-[2px]">
           {whites.map((k) => (
-            <button
+            <div
               key={k.note}
-              onPointerDown={(e) => {
-                e.currentTarget.setPointerCapture(e.pointerId);
-                play(k.note);
-              }}
-              className={`relative flex-1 h-40 sm:h-48 rounded-b-xl border border-border bg-gradient-to-b from-white to-zinc-200 text-zinc-700 font-semibold transition-transform duration-75 ${
+              data-piano-key="1"
+              data-note={k.note}
+              className={`relative flex-1 h-40 sm:h-48 rounded-b-xl border border-border bg-gradient-to-b from-white to-zinc-200 text-zinc-700 font-semibold transition-transform duration-75 cursor-pointer ${
                 active.has(k.note) ? "translate-y-1 from-zinc-200 to-zinc-300 shadow-[inset_0_4px_12px_rgba(0,0,0,0.25)]" : ""
               }`}
               style={{ minWidth: 42 }}
             >
-              <span className="absolute bottom-1.5 left-0 right-0 text-[10px] opacity-50">{k.note}</span>
-            </button>
+              <span className="absolute bottom-1.5 left-0 right-0 text-[10px] opacity-50 text-center pointer-events-none">{k.note}</span>
+            </div>
           ))}
         </div>
         {/* blacks overlay */}
@@ -129,31 +153,29 @@ function Piano({ sustain }: { sustain: boolean }) {
             const wIdx = whiteIndex(i);
             const left = (wIdx / whites.length) * 100;
             return (
-              <button
+              <div
                 key={k.note}
-                onPointerDown={(e) => {
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  play(k.note);
-                }}
-                className={`pointer-events-auto absolute -translate-x-1/2 h-24 sm:h-28 w-7 sm:w-8 rounded-b-lg text-[9px] font-medium transition-transform duration-75 ${
+                data-piano-key="1"
+                data-note={k.note}
+                className={`pointer-events-auto absolute -translate-x-1/2 h-24 sm:h-28 w-7 sm:w-8 rounded-b-lg text-[9px] font-medium transition-transform duration-75 cursor-pointer ${
                   active.has(k.note)
                     ? "translate-y-1 bg-gradient-to-b from-zinc-700 to-black neon-border"
                     : "bg-gradient-to-b from-zinc-900 to-black text-zinc-400"
                 }`}
                 style={{ left: `${left}%` }}
               >
-                <span className="absolute bottom-1 left-0 right-0">{k.note.replace(/\d/, "")}</span>
-              </button>
+                <span className="absolute bottom-1 left-0 right-0 text-center pointer-events-none">{k.note.replace(/\d/, "")}</span>
+              </div>
             );
           })}
         </div>
       </div>
       <div className="mt-3 text-center text-[11px] text-muted-foreground">
-        Tap or use keys <kbd className="px-1 rounded bg-white/10">A S D F G H J K L</kbd>
+        Tap, slide for glissando, or use keys <kbd className="px-1 rounded bg-white/10">A S D F G H J K L</kbd>
       </div>
     </div>
   );
-}
+});
 
 /* -------------------------------------------------------------------------- */
 /*  GUITAR / SITAR / VEENA / VIOLIN – pluckable fretboard                     */
@@ -205,7 +227,7 @@ function noteAt(open: string, fret: number): string {
   return `${NOTE_ORDER[newIdx]}${newOct}`;
 }
 
-function Fretboard({
+const Fretboard = memo(function Fretboard({
   tuning,
   get,
   frets = 5,
@@ -361,7 +383,7 @@ function Fretboard({
       </div>
     </div>
   );
-}
+});
 
 /* -------------------------------------------------------------------------- */
 /*  DRUMS – 6 pads with ripple + beat dot                                     */
@@ -376,7 +398,7 @@ const DRUM_PADS = [
   { id: "hat", label: "Crash", key: "N", alt: true },
 ] as const;
 
-function Drums() {
+const Drums = memo(function Drums() {
   const { active, on, off } = useActive();
   const [pulse, setPulse] = useState(0);
   const [velocities, setVelocities] = useState<Record<string, number>>({});
@@ -472,7 +494,7 @@ function Drums() {
       </div>
     </div>
   );
-}
+});
 
 /* -------------------------------------------------------------------------- */
 /*  FLUTE – hole combinations produce different notes                         */
@@ -489,7 +511,7 @@ const FLUTE_FINGERINGS: { holes: boolean[]; note: string }[] = [
   { holes: [false, false, false, false, false, false], note: "B5" },
 ];
 
-function Flute() {
+const Flute = memo(function Flute() {
   const [covered, setCovered] = useState<boolean[]>([false, false, false, false, false, false]);
   const [playing, setPlaying] = useState(false);
   const noteRef = useRef<string | null>(null);
@@ -555,11 +577,61 @@ function Flute() {
       </div>
     </div>
   );
-}
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Audio-reactive halo (fullscreen ambience)                                 */
+/* -------------------------------------------------------------------------- */
+
+const ReactiveHalo = memo(function ReactiveHalo({ color }: { color: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const fft = getFFT();
+    if (!fft) return;
+    let raf = 0;
+    let bass = 0, treble = 0;
+    const tick = () => {
+      const v = fft.getValue() as Float32Array;
+      // bass = avg of lowest 8 bins, treble = avg of top 16 bins (values are dB, -100..0)
+      let b = 0, t = 0;
+      for (let i = 0; i < 8; i++) b += v[i] ?? -100;
+      for (let i = v.length - 16; i < v.length; i++) t += v[i] ?? -100;
+      const bN = Math.max(0, (b / 8 + 100) / 100);
+      const tN = Math.max(0, (t / 16 + 100) / 100);
+      // smooth (low-pass) to avoid layout thrash
+      bass += (bN - bass) * 0.25;
+      treble += (tN - treble) * 0.3;
+      const el = ref.current;
+      if (el) {
+        const scale = 1 + bass * 0.35;
+        const blur = 40 + treble * 60;
+        const op = 0.35 + bass * 0.55;
+        el.style.transform = `scale(${scale.toFixed(3)})`;
+        el.style.filter = `blur(${blur.toFixed(1)}px)`;
+        el.style.opacity = op.toFixed(3);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      className="pointer-events-none absolute inset-0 -z-10"
+      style={{
+        background: `radial-gradient(50% 40% at 50% 50%, ${color}, transparent 70%)`,
+        willChange: "transform, filter, opacity",
+      }}
+    />
+  );
+});
 
 /* -------------------------------------------------------------------------- */
 /*  Root                                                                      */
 /* -------------------------------------------------------------------------- */
+
 
 const MOODS: Record<InstrumentKey, { label: string; glow: string; halo: string; bg: string }> = {
   Piano: {
@@ -756,8 +828,13 @@ export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-background/95 backdrop-blur-2xl p-3 sm:p-6 overflow-auto"
-            style={{ backgroundImage: mood.bg }}
+            style={{
+              backgroundImage: mood.bg,
+              paddingTop: "max(env(safe-area-inset-top), 0.75rem)",
+              paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)",
+            }}
           >
+            <ReactiveHalo color={mood.glow} />
             <div className="mx-auto max-w-5xl">{content}</div>
           </motion.div>
         )}
