@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Maximize2, Minimize2 } from "lucide-react";
 import {
@@ -11,6 +11,7 @@ import {
   getVeena,
   triggerDrum,
   preloadInstrument,
+  getFFT,
 } from "@/lib/audio-engine";
 import type { InstrumentKey } from "@/lib/instruments";
 
