@@ -383,7 +383,7 @@ const Fretboard = memo(function Fretboard({
       </div>
     </div>
   );
-}
+});
 
 /* -------------------------------------------------------------------------- */
 /*  DRUMS – 6 pads with ripple + beat dot                                     */
