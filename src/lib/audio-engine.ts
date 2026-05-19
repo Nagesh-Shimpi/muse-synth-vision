@@ -22,10 +22,7 @@ function tuneContextOnce() {
   contextTuned = true;
   try {
     // Low-latency mobile-friendly scheduling
-    const ctx = Tone.getContext();
-    ctx.lookAhead = 0.02; // 20ms scheduling window — tight but reliable on mobile
-    // @ts-expect-error: raw AudioContext flag
-    if (ctx.rawContext?.audioWorklet) {/* keep audioWorklet path */}
+    Tone.getContext().lookAhead = 0.02; // 20ms — tight but reliable on mobile
   } catch { /* noop */ }
 }
 
