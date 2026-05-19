@@ -69,7 +69,7 @@ function buildPianoKeys(): PianoKey[] {
   return keys;
 }
 
-function Piano({ sustain }: { sustain: boolean }) {
+const Piano = memo(function Piano({ sustain }: { sustain: boolean }) {
   const { active, on, off } = useActive();
   const keys = useMemo(buildPianoKeys, []);
   const whites = keys.filter((k) => !k.black);
@@ -99,28 +99,51 @@ function Piano({ sustain }: { sustain: boolean }) {
 
   const whiteIndex = (i: number) => keys.slice(0, i).filter((k) => !k.black).length;
 
+  // Per-finger tracking — enables glissando + true two-hand chords on mobile
+  const fingerNote = useRef<Map<number, string>>(new Map());
+
+  const hitFromPoint = useCallback(
+    (pointerId: number, x: number, y: number) => {
+      const el = document.elementFromPoint(x, y) as HTMLElement | null;
+      const k = el?.closest<HTMLElement>("[data-piano-key]");
+      if (!k) return;
+      const note = k.dataset.note!;
+      if (fingerNote.current.get(pointerId) === note) return;
+      fingerNote.current.set(pointerId, note);
+      play(note);
+    },
+    [play],
+  );
+
   return (
-    <div className="w-full overflow-x-auto pb-2">
+    <div className="w-full overflow-x-auto pb-2" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
       <div
         className="relative mx-auto select-none"
         style={{ width: `${whites.length * 48}px`, minWidth: "100%", touchAction: "none" }}
+        onPointerDown={(e) => hitFromPoint(e.pointerId, e.clientX, e.clientY)}
+        onPointerMove={(e) => {
+          if (!fingerNote.current.has(e.pointerId)) return;
+          hitFromPoint(e.pointerId, e.clientX, e.clientY);
+        }}
+        onPointerUp={(e) => fingerNote.current.delete(e.pointerId)}
+        onPointerCancel={(e) => fingerNote.current.delete(e.pointerId)}
+        onPointerLeave={(e) => fingerNote.current.delete(e.pointerId)}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {/* whites */}
         <div className="flex gap-[2px]">
           {whites.map((k) => (
-            <button
+            <div
               key={k.note}
-              onPointerDown={(e) => {
-                e.currentTarget.setPointerCapture(e.pointerId);
-                play(k.note);
-              }}
-              className={`relative flex-1 h-40 sm:h-48 rounded-b-xl border border-border bg-gradient-to-b from-white to-zinc-200 text-zinc-700 font-semibold transition-transform duration-75 ${
+              data-piano-key="1"
+              data-note={k.note}
+              className={`relative flex-1 h-40 sm:h-48 rounded-b-xl border border-border bg-gradient-to-b from-white to-zinc-200 text-zinc-700 font-semibold transition-transform duration-75 cursor-pointer ${
                 active.has(k.note) ? "translate-y-1 from-zinc-200 to-zinc-300 shadow-[inset_0_4px_12px_rgba(0,0,0,0.25)]" : ""
               }`}
               style={{ minWidth: 42 }}
             >
-              <span className="absolute bottom-1.5 left-0 right-0 text-[10px] opacity-50">{k.note}</span>
-            </button>
+              <span className="absolute bottom-1.5 left-0 right-0 text-[10px] opacity-50 text-center pointer-events-none">{k.note}</span>
+            </div>
           ))}
         </div>
         {/* blacks overlay */}
@@ -130,31 +153,29 @@ function Piano({ sustain }: { sustain: boolean }) {
             const wIdx = whiteIndex(i);
             const left = (wIdx / whites.length) * 100;
             return (
-              <button
+              <div
                 key={k.note}
-                onPointerDown={(e) => {
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  play(k.note);
-                }}
-                className={`pointer-events-auto absolute -translate-x-1/2 h-24 sm:h-28 w-7 sm:w-8 rounded-b-lg text-[9px] font-medium transition-transform duration-75 ${
+                data-piano-key="1"
+                data-note={k.note}
+                className={`pointer-events-auto absolute -translate-x-1/2 h-24 sm:h-28 w-7 sm:w-8 rounded-b-lg text-[9px] font-medium transition-transform duration-75 cursor-pointer ${
                   active.has(k.note)
                     ? "translate-y-1 bg-gradient-to-b from-zinc-700 to-black neon-border"
                     : "bg-gradient-to-b from-zinc-900 to-black text-zinc-400"
                 }`}
                 style={{ left: `${left}%` }}
               >
-                <span className="absolute bottom-1 left-0 right-0">{k.note.replace(/\d/, "")}</span>
-              </button>
+                <span className="absolute bottom-1 left-0 right-0 text-center pointer-events-none">{k.note.replace(/\d/, "")}</span>
+              </div>
             );
           })}
         </div>
       </div>
       <div className="mt-3 text-center text-[11px] text-muted-foreground">
-        Tap or use keys <kbd className="px-1 rounded bg-white/10">A S D F G H J K L</kbd>
+        Tap, slide for glissando, or use keys <kbd className="px-1 rounded bg-white/10">A S D F G H J K L</kbd>
       </div>
     </div>
   );
-}
+});
 
 /* -------------------------------------------------------------------------- */
 /*  GUITAR / SITAR / VEENA / VIOLIN – pluckable fretboard                     */
