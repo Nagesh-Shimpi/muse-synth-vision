@@ -511,7 +511,7 @@ const FLUTE_FINGERINGS: { holes: boolean[]; note: string }[] = [
   { holes: [false, false, false, false, false, false], note: "B5" },
 ];
 
-function Flute() {
+const Flute = memo(function Flute() {
   const [covered, setCovered] = useState<boolean[]>([false, false, false, false, false, false]);
   const [playing, setPlaying] = useState(false);
   const noteRef = useRef<string | null>(null);
