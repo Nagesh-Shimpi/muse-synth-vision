@@ -494,7 +494,7 @@ const Drums = memo(function Drums() {
       </div>
     </div>
   );
-}
+});
 
 /* -------------------------------------------------------------------------- */
 /*  FLUTE – hole combinations produce different notes                         */
