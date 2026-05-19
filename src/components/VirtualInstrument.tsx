@@ -828,8 +828,13 @@ export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-background/95 backdrop-blur-2xl p-3 sm:p-6 overflow-auto"
-            style={{ backgroundImage: mood.bg }}
+            style={{
+              backgroundImage: mood.bg,
+              paddingTop: "max(env(safe-area-inset-top), 0.75rem)",
+              paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)",
+            }}
           >
+            <ReactiveHalo color={mood.glow} />
             <div className="mx-auto max-w-5xl">{content}</div>
           </motion.div>
         )}
