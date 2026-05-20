@@ -515,67 +515,180 @@ const FLUTE_FINGERINGS: { holes: boolean[]; note: string }[] = [
 
 const Flute = memo(function Flute() {
   const [covered, setCovered] = useState<boolean[]>([false, false, false, false, false, false]);
-  const [playing, setPlaying] = useState(false);
-  const noteRef = useRef<string | null>(null);
+  const [micOn, setMicOn] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const [intensity, setIntensity] = useState(0);
+  const breathRef = useRef<BreathHandle | null>(null);
+  const blowingRef = useRef(false);
 
   const currentNote = useMemo(() => {
     const match = FLUTE_FINGERINGS.find((f) => f.holes.every((v, i) => v === covered[i]));
     return match?.note ?? "C6";
   }, [covered]);
 
-  const toggle = (i: number) =>
+  // Multitouch: pointer down/up on each hole
+  const setHole = useCallback((i: number, v: boolean) => {
     setCovered((c) => {
+      if (c[i] === v) return c;
       const n = [...c];
-      n[i] = !n[i];
+      n[i] = v;
       return n;
     });
+  }, []);
 
-  const blow = async () => {
+  // Keep sustained-flute note in sync when fingering changes mid-blow
+  useEffect(() => {
+    if (blowingRef.current) {
+      try { getSustainedFlute().setNote(currentNote); } catch { /* noop */ }
+    }
+  }, [currentNote]);
+
+  const enableMic = useCallback(async () => {
+    try {
+      setMicError(null);
+      await ensureAudio();
+      // Warm up sustained flute voice (silent)
+      getSustainedFlute().setBreath(0);
+      const handle = await startBreathDetection({
+        threshold: 0.08,
+        smoothing: 0.65,
+        onUpdate: ({ intensity, active }) => {
+          setIntensity(intensity);
+          const flute = getSustainedFlute();
+          if (active && !blowingRef.current) {
+            blowingRef.current = true;
+            flute.start(currentNote);
+            vibrate(8);
+          } else if (!active && blowingRef.current) {
+            blowingRef.current = false;
+            flute.stop();
+          }
+          flute.setBreath(active ? intensity : 0);
+        },
+      });
+      breathRef.current = handle;
+      setMicOn(true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Microphone unavailable";
+      setMicError(msg.includes("denied") || msg.includes("Permission") ? "Microphone permission denied" : msg);
+      setMicOn(false);
+    }
+  }, [currentNote]);
+
+  const disableMic = useCallback(() => {
+    breathRef.current?.stop();
+    breathRef.current = null;
+    if (blowingRef.current) {
+      blowingRef.current = false;
+      try { getSustainedFlute().stop(); } catch { /* noop */ }
+    }
+    setMicOn(false);
+    setIntensity(0);
+  }, []);
+
+  useEffect(() => () => { breathRef.current?.stop(); try { getSustainedFlute().stop(); } catch { /* noop */ } }, []);
+
+  // Tap-to-play fallback (no mic)
+  const tapPlay = useCallback(async () => {
     await ensureAudio();
-    setPlaying(true);
-    noteRef.current = currentNote;
     getFlute().triggerAttackRelease(currentNote, "2n");
-    vibrate(14);
-    window.setTimeout(() => setPlaying(false), 700);
-  };
+    vibrate(12);
+  }, [currentNote]);
+
+  const pct = Math.round(intensity * 100);
+  const glow = Math.min(1, intensity * 1.4);
 
   return (
-    <div className="py-4 space-y-4">
+    <div className="py-4 space-y-4" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
+      {/* Flute body with finger holes */}
       <div className="relative mx-auto max-w-xl">
-        <div className="h-16 sm:h-20 rounded-full bg-gradient-to-r from-amber-200/40 via-amber-100/20 to-amber-200/40 glass-strong flex items-center justify-around px-8 sm:px-12">
+        <div
+          className="h-16 sm:h-20 rounded-full bg-gradient-to-r from-amber-200/40 via-amber-100/20 to-amber-200/40 glass-strong flex items-center justify-around px-8 sm:px-12 relative overflow-hidden"
+          style={{ boxShadow: micOn ? `0 0 ${20 + glow * 60}px hsl(var(--primary) / ${0.2 + glow * 0.5})` : undefined }}
+        >
           {covered.map((c, i) => (
             <button
               key={i}
-              onClick={() => toggle(i)}
-              className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full border-2 transition-all active:scale-90 ${
-                c ? "bg-[image:var(--gradient-neon)] border-white/40 neon-border" : "bg-background border-border"
+              onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setHole(i, true); }}
+              onPointerUp={() => setHole(i, false)}
+              onPointerCancel={() => setHole(i, false)}
+              onPointerLeave={(e) => { if (e.buttons) setHole(i, false); }}
+              className={`h-9 w-9 sm:h-11 sm:w-11 rounded-full border-2 transition-all touch-none ${
+                c ? "bg-[image:var(--gradient-neon)] border-white/40 neon-border scale-95" : "bg-background border-border"
               }`}
               aria-label={`Hole ${i + 1}`}
             />
           ))}
         </div>
-        {playing && (
-          <motion.div
-            initial={{ opacity: 0, scaleX: 0.6 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute -right-2 top-1/2 -translate-y-1/2 h-1.5 w-24 rounded-full bg-gradient-to-r from-cyan-300 to-transparent blur-[1px]"
-          />
-        )}
+        {/* Airflow trail — reactive to breath intensity */}
+        <AnimatePresence>
+          {micOn && intensity > 0.05 && (
+            <motion.div
+              key="airflow"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 + glow * 0.6, scaleX: 1 + glow * 0.6 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+              className="pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2 h-2 rounded-full bg-gradient-to-r from-cyan-300 via-cyan-200/50 to-transparent blur-[2px]"
+              style={{ width: `${40 + glow * 120}px`, transformOrigin: "left center" }}
+            />
+          )}
+        </AnimatePresence>
       </div>
-      <div className="flex items-center justify-center gap-3">
-        <div className="text-sm text-muted-foreground">
-          Note: <span className="neon-text font-semibold">{currentNote}</span>
+
+      {/* Breath meter + note */}
+      <div className="mx-auto max-w-xl space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Breath</span>
+          <span className="text-muted-foreground">
+            Note: <span className="neon-text font-semibold">{currentNote}</span>
+          </span>
         </div>
-        <button
-          onPointerDown={blow}
-          className="rounded-full bg-[image:var(--gradient-neon)] text-primary-foreground font-semibold px-6 py-2.5 neon-border active:scale-95"
-        >
-          Blow
-        </button>
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <motion.div
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.08, ease: "linear" }}
+            className="h-full bg-[image:var(--gradient-neon)]"
+            style={{ boxShadow: `0 0 ${10 + glow * 20}px hsl(var(--primary) / ${0.4 + glow * 0.6})` }}
+          />
+        </div>
       </div>
-      <div className="text-center text-[11px] text-muted-foreground">
-        Tap holes to change fingering, then press Blow
+
+      {/* Mic control */}
+      <div className="flex flex-col items-center gap-2">
+        {!micOn ? (
+          <button
+            onClick={enableMic}
+            className="flex items-center gap-2 rounded-full bg-[image:var(--gradient-neon)] text-primary-foreground font-semibold px-6 py-2.5 neon-border active:scale-95"
+          >
+            <Mic className="h-4 w-4" />
+            Enable Breath Mode
+          </button>
+        ) : (
+          <button
+            onClick={disableMic}
+            className="flex items-center gap-2 rounded-full glass-strong border border-border px-5 py-2 text-sm active:scale-95"
+          >
+            <MicOff className="h-4 w-4" />
+            Stop mic
+          </button>
+        )}
+
+        {/* Tap-to-play fallback */}
+        <button
+          onPointerDown={tapPlay}
+          className="rounded-full glass-strong border border-border px-4 py-1.5 text-xs text-muted-foreground active:scale-95"
+        >
+          Or tap to blow once
+        </button>
+
+        {micError && <div className="text-xs text-destructive">{micError}</div>}
+      </div>
+
+      <div className="text-center text-[11px] text-muted-foreground px-4">
+        {micOn
+          ? "Cover holes with fingers, then blow softly into the mic. Harder breath = louder, brighter tone."
+          : "Enable the mic and blow air across it like a real flute. Cover holes to change pitch."}
       </div>
     </div>
   );
