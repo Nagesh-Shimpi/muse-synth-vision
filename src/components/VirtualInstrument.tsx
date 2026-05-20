@@ -1,18 +1,20 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, Mic, MicOff } from "lucide-react";
 import {
   ensureAudio,
   getPiano,
   getGuitar,
   getViolin,
   getFlute,
+  getSustainedFlute,
   getSitar,
   getVeena,
   triggerDrum,
   preloadInstrument,
   getFFT,
 } from "@/lib/audio-engine";
+import { startBreathDetection, type BreathHandle } from "@/lib/breath-engine";
 import type { InstrumentKey } from "@/lib/instruments";
 
 /* -------------------------------------------------------------------------- */
