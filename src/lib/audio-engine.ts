@@ -252,11 +252,9 @@ export function getSustainedFlute(): SustainedFlute {
   mixer.chain(vibrato, reverb, out());
 
   let started = false;
-  let currentNote = "C5";
 
   _sustainedFlute = {
     start(note: string) {
-      currentNote = note;
       if (!started) {
         noise.start();
         started = true;
@@ -264,15 +262,12 @@ export function getSustainedFlute(): SustainedFlute {
       body.triggerAttack(note);
     },
     setNote(note: string) {
-      currentNote = note;
       body.setNote(note);
     },
     setBreath(i: number) {
       const clamped = Math.max(0, Math.min(1, i));
-      // Body louder than air; both scale with breath, smooth ramps
       bodyGain.gain.rampTo(clamped * 0.85, 0.06);
       noiseGain.gain.rampTo(clamped * 0.18, 0.06);
-      // Brighter timbre with harder blow
       vibrato.depth.rampTo(0.03 + clamped * 0.05, 0.1);
     },
     stop() {
@@ -286,9 +281,7 @@ export function getSustainedFlute(): SustainedFlute {
       body.dispose(); bodyGain.dispose(); vibrato.dispose(); reverb.dispose(); mixer.dispose();
       _sustainedFlute = null;
     },
-    // mark currentNote as used for type inference
-    get _n() { return currentNote; },
-  } as SustainedFlute;
+  };
   return _sustainedFlute;
 }
 
