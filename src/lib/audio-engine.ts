@@ -209,6 +209,82 @@ export function getFlute(): AnyInst {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Sustained Flute Voice — for breath-controlled continuous playing.         */
+/*  Uses MonoSynth with attack/release tied to mic breath envelope.           */
+/* -------------------------------------------------------------------------- */
+
+type SustainedFlute = {
+  start: (note: string) => void;
+  setNote: (note: string) => void;
+  setBreath: (intensity: number) => void; // 0..1
+  stop: () => void;
+  dispose: () => void;
+};
+
+let _sustainedFlute: SustainedFlute | null = null;
+
+export function getSustainedFlute(): SustainedFlute {
+  if (_sustainedFlute) return _sustainedFlute;
+
+  // Airy breath-noise layer
+  const noise = new Tone.Noise("pink");
+  const noiseFilt = new Tone.Filter({ type: "bandpass", frequency: 2000, Q: 1.2 });
+  const noiseGain = new Tone.Gain(0);
+  noise.chain(noiseFilt, noiseGain);
+
+  // Tonal body
+  const body = new Tone.MonoSynth({
+    oscillator: { type: "sine" },
+    envelope: { attack: 0.15, decay: 0.1, sustain: 1.0, release: 0.4 },
+    filterEnvelope: { attack: 0.2, decay: 0.2, sustain: 0.9, release: 0.4, baseFrequency: 800, octaves: 3 },
+  });
+  const bodyGain = new Tone.Gain(0);
+  body.connect(bodyGain);
+
+  // Subtle vibrato for realism
+  const vibrato = new Tone.Vibrato({ frequency: 5.2, depth: 0.04 });
+  const reverb = new Tone.Reverb({ decay: 2.4, wet: 0.32 });
+
+  const mixer = new Tone.Gain(0.9);
+  bodyGain.connect(mixer);
+  noiseGain.connect(mixer);
+  mixer.chain(vibrato, reverb, out());
+
+  let started = false;
+
+  _sustainedFlute = {
+    start(note: string) {
+      if (!started) {
+        noise.start();
+        started = true;
+      }
+      body.triggerAttack(note);
+    },
+    setNote(note: string) {
+      body.setNote(note);
+    },
+    setBreath(i: number) {
+      const clamped = Math.max(0, Math.min(1, i));
+      bodyGain.gain.rampTo(clamped * 0.85, 0.06);
+      noiseGain.gain.rampTo(clamped * 0.18, 0.06);
+      vibrato.depth.rampTo(0.03 + clamped * 0.05, 0.1);
+    },
+    stop() {
+      body.triggerRelease();
+      bodyGain.gain.rampTo(0, 0.15);
+      noiseGain.gain.rampTo(0, 0.15);
+    },
+    dispose() {
+      try { noise.stop(); } catch { /* noop */ }
+      noise.dispose(); noiseFilt.dispose(); noiseGain.dispose();
+      body.dispose(); bodyGain.dispose(); vibrato.dispose(); reverb.dispose(); mixer.dispose();
+      _sustainedFlute = null;
+    },
+  };
+  return _sustainedFlute;
+}
+
 // Indian classical: keep richly-tuned PluckSynth pool — no clean free sample set
 function makePool(key: string, voices: number, factory: () => Tone.PluckSynth, decay: number, wet: number): AnyInst {
   if (cache.has(key)) return cache.get(key)!;
