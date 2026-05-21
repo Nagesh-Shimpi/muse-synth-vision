@@ -27,7 +27,7 @@ function HistoryPage() {
           <p className="text-muted-foreground mt-2">Replay sounds from previous scans.</p>
         </div>
         {items.length > 0 && (
-          <button onClick={clear} className="glass rounded-full px-3 py-2 text-xs hover:bg-white/5">
+          <button onClick={clear} className="glass rounded-full px-3 py-2 text-xs hover:bg-black/5">
             Clear all
           </button>
         )}

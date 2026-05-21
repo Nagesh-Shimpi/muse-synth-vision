@@ -13,6 +13,7 @@ import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ResultRouteImport } from './routes/result'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RoomRoomIdRouteImport } from './routes/room.$roomId'
 
 const ScanRoute = ScanRouteImport.update({
   id: '/scan',
@@ -34,18 +35,25 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RoomRoomIdRoute = RoomRoomIdRouteImport.update({
+  id: '/room/$roomId',
+  path: '/room/$roomId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/result': typeof ResultRoute
   '/scan': typeof ScanRoute
+  '/room/$roomId': typeof RoomRoomIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/result': typeof ResultRoute
   '/scan': typeof ScanRoute
+  '/room/$roomId': typeof RoomRoomIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/result': typeof ResultRoute
   '/scan': typeof ScanRoute
+  '/room/$roomId': typeof RoomRoomIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/result' | '/scan'
+  fullPaths: '/' | '/history' | '/result' | '/scan' | '/room/$roomId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/result' | '/scan'
-  id: '__root__' | '/' | '/history' | '/result' | '/scan'
+  to: '/' | '/history' | '/result' | '/scan' | '/room/$roomId'
+  id: '__root__' | '/' | '/history' | '/result' | '/scan' | '/room/$roomId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +76,7 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   ResultRoute: typeof ResultRoute
   ScanRoute: typeof ScanRoute
+  RoomRoomIdRoute: typeof RoomRoomIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/room/$roomId': {
+      id: '/room/$roomId'
+      path: '/room/$roomId'
+      fullPath: '/room/$roomId'
+      preLoaderRoute: typeof RoomRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   ResultRoute: ResultRoute,
   ScanRoute: ScanRoute,
+  RoomRoomIdRoute: RoomRoomIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

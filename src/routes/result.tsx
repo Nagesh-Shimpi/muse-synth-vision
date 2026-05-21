@@ -96,13 +96,13 @@ function ResultPage() {
             <div className="p-5 pt-4">
               <p className="text-sm text-muted-foreground">{detection.description}</p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={share} className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-white/5 transition">
+                <button onClick={share} className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition">
                   <Share2 className="h-4 w-4" /> Share
                 </button>
-                <button onClick={download} className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-white/5 transition">
+                <button onClick={download} className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition">
                   <Download className="h-4 w-4" /> Save image
                 </button>
-                <Link to="/scan" className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-white/5 transition">
+                <Link to="/scan" className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition">
                   <RotateCcw className="h-4 w-4" /> New scan
                 </Link>
               </div>

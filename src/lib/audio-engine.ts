@@ -8,6 +8,18 @@ let analyser: Tone.Analyser | null = null;
 let fft: Tone.FFT | null = null;
 let contextTuned = false;
 
+export let suppressEvent = false;
+
+export function setSuppressEvent(val: boolean) {
+  suppressEvent = val;
+}
+
+export function notifyLocalNote(instrumentType: string, note: string) {
+  if (!suppressEvent && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("local_note_played", { detail: { instrumentType, note } }));
+  }
+}
+
 type AnyInst = {
   triggerAttackRelease: (n: string, d: string | number) => void;
   releaseAll?: () => void;
@@ -104,6 +116,7 @@ function buildSampler(
     sampler.chain(rev, out());
     inst = {
       triggerAttackRelease: (n, d) => {
+        notifyLocalNote(key, String(n));
         if (loaded.get(key)) sampler.triggerAttackRelease(n, d);
         else cache.get(key + ":_fb")?.triggerAttackRelease(n, d);
       },
@@ -156,7 +169,11 @@ export function getGuitar(): AnyInst {
       }
       let i = 0;
       return {
-        triggerAttackRelease: (n, d) => { pool[i].triggerAttackRelease(n, d); i = (i + 1) % pool.length; },
+        triggerAttackRelease: (n, d) => { 
+          notifyLocalNote("guitar", String(n));
+          pool[i].triggerAttackRelease(n, d); 
+          i = (i + 1) % pool.length; 
+        },
         dispose: () => pool.forEach((p) => p.dispose()),
       };
     },
@@ -259,9 +276,11 @@ export function getSustainedFlute(): SustainedFlute {
         noise.start();
         started = true;
       }
+      notifyLocalNote("flute", note);
       body.triggerAttack(note);
     },
     setNote(note: string) {
+      notifyLocalNote("flute", note);
       body.setNote(note);
     },
     setBreath(i: number) {
@@ -298,7 +317,11 @@ function makePool(key: string, voices: number, factory: () => Tone.PluckSynth, d
   }
   let i = 0;
   const inst: AnyInst = {
-    triggerAttackRelease: (n, d) => { pool[i].triggerAttackRelease(n, d); i = (i + 1) % pool.length; },
+    triggerAttackRelease: (n, d) => { 
+      notifyLocalNote(key, String(n));
+      pool[i].triggerAttackRelease(n, d); 
+      i = (i + 1) % pool.length; 
+    },
     dispose: () => pool.forEach((p) => p.dispose()),
   };
   cache.set(key, inst);
@@ -340,6 +363,7 @@ export function triggerDrum(pad: "kick" | "snare" | "hat" | "tom") {
     cache.set(k, inst);
   }
   const inst = cache.get(k)!;
+  notifyLocalNote("drums", pad);
   if (pad === "kick") inst.triggerAttackRelease("C2", "8n");
   else if (pad === "tom") inst.triggerAttackRelease("A2", "8n");
   else if (pad === "snare") inst.triggerAttackRelease("C2", "16n");

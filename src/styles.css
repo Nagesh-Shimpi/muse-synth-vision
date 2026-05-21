@@ -33,44 +33,46 @@
   --color-aurora-1: var(--aurora-1);
   --color-aurora-2: var(--aurora-2);
   --color-aurora-3: var(--aurora-3);
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --color-aurora-3: var(--aurora-3);
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
 }
 
 :root {
   --radius: 1rem;
-  --background: oklch(0.16 0.03 270);
-  --foreground: oklch(0.97 0.01 270);
-  --card: oklch(0.21 0.035 270 / 60%);
-  --card-foreground: oklch(0.97 0.01 270);
-  --popover: oklch(0.21 0.035 270);
-  --popover-foreground: oklch(0.97 0.01 270);
-  --primary: oklch(0.78 0.18 320);
-  --primary-foreground: oklch(0.15 0.03 270);
-  --secondary: oklch(0.28 0.04 270);
-  --secondary-foreground: oklch(0.97 0.01 270);
-  --muted: oklch(0.25 0.03 270);
-  --muted-foreground: oklch(0.7 0.03 270);
-  --accent: oklch(0.78 0.18 220);
-  --accent-foreground: oklch(0.15 0.03 270);
-  --destructive: oklch(0.65 0.22 25);
-  --destructive-foreground: oklch(0.98 0.005 270);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.78 0.18 320);
-  --aurora-1: oklch(0.78 0.18 320);
-  --aurora-2: oklch(0.78 0.18 220);
-  --aurora-3: oklch(0.78 0.18 160);
+  --background: oklch(0.98 0.02 90);
+  --foreground: oklch(0.2 0.02 50);
+  --card: oklch(1 0.01 90 / 80%);
+  --card-foreground: oklch(0.2 0.02 50);
+  --popover: oklch(1 0.01 90);
+  --popover-foreground: oklch(0.2 0.02 50);
+  --primary: oklch(0.4 0.1 50);
+  --primary-foreground: oklch(0.98 0.02 90);
+  --secondary: oklch(0.95 0.03 90);
+  --secondary-foreground: oklch(0.3 0.05 50);
+  --muted: oklch(0.92 0.02 90);
+  --muted-foreground: oklch(0.4 0.02 50);
+  --accent: oklch(0.85 0.05 70);
+  --accent-foreground: oklch(0.2 0.02 50);
+  --destructive: oklch(0.5 0.15 20);
+  --destructive-foreground: oklch(0.98 0.02 90);
+  --border: oklch(0 0 0 / 10%);
+  --input: oklch(0 0 0 / 8%);
+  --ring: oklch(0.4 0.1 50);
+  --aurora-1: oklch(0.9 0.05 80);
+  --aurora-2: oklch(0.95 0.03 60);
+  --aurora-3: oklch(0.98 0.02 90);
 
-  --gradient-aurora: radial-gradient(at 20% 20%, oklch(0.78 0.18 320 / 35%) 0px, transparent 50%),
-    radial-gradient(at 80% 10%, oklch(0.78 0.18 220 / 35%) 0px, transparent 50%),
-    radial-gradient(at 50% 90%, oklch(0.78 0.18 160 / 25%) 0px, transparent 50%);
+  --gradient-aurora: radial-gradient(at 20% 20%, oklch(0.9 0.05 80 / 40%) 0px, transparent 50%),
+    radial-gradient(at 80% 10%, oklch(0.95 0.03 60 / 40%) 0px, transparent 50%),
+    radial-gradient(at 50% 90%, oklch(0.98 0.02 90 / 30%) 0px, transparent 50%);
   --gradient-neon: linear-gradient(135deg, var(--aurora-1), var(--aurora-2));
-  --shadow-glow: 0 0 40px oklch(0.78 0.18 320 / 35%);
-  --shadow-glow-cyan: 0 0 30px oklch(0.78 0.18 220 / 45%);
+  --shadow-glow: 0 0 40px oklch(0.4 0.1 50 / 15%);
+  --shadow-glow-cyan: 0 0 30px oklch(0.85 0.05 70 / 25%);
 }
 
 .dark {
-  --background: oklch(0.16 0.03 270);
+  --background: oklch(0.98 0.02 90);
 }
 
 @layer base {
@@ -88,16 +90,18 @@
 
 @layer utilities {
   .glass {
-    background: oklch(1 0 0 / 4%);
+    background: oklch(1 0 0 / 50%);
     backdrop-filter: blur(20px) saturate(140%);
     -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid oklch(1 0 0 / 10%);
+    border: 1px solid oklch(0 0 0 / 5%);
+    box-shadow: 0 4px 30px oklch(0 0 0 / 3%);
   }
   .glass-strong {
-    background: oklch(0.21 0.035 270 / 70%);
+    background: oklch(1 0 0 / 80%);
     backdrop-filter: blur(24px) saturate(160%);
     -webkit-backdrop-filter: blur(24px) saturate(160%);
-    border: 1px solid oklch(1 0 0 / 12%);
+    border: 1px solid oklch(0 0 0 / 8%);
+    box-shadow: 0 8px 32px oklch(0 0 0 / 4%);
   }
   .neon-text {
     background: var(--gradient-neon);
@@ -112,7 +116,10 @@
     box-shadow: var(--shadow-glow-cyan);
   }
   .scan-line {
-    background: linear-gradient(180deg, transparent, oklch(0.78 0.18 220 / 60%), transparent);
+    background: linear-gradient(180deg, transparent, oklch(0.4 0.1 50 / 60%), transparent);
+  }
+  .font-serif {
+    font-family: var(--font-serif);
   }
 }
 

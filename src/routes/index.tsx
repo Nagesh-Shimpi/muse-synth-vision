@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ArrowRight, Brain, Sparkles, Waves } from "lucide-react";
+import { ArrowRight, Brain, Sparkles, Waves, Users } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,6 +13,13 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const navigate = useNavigate();
+
+  const handleCreateRoom = () => {
+    const id = Math.random().toString(36).substring(2, 8);
+    navigate({ to: `/room/${id}` });
+  };
+
   return (
     <div className="relative">
       <section className="mx-auto max-w-6xl px-4 pt-16 sm:pt-24 pb-12 text-center">
@@ -49,15 +56,23 @@ function Index() {
           transition={{ duration: 0.7, delay: 0.15 }}
           className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3"
         >
-          <Link
-            to="/scan"
-            className="inline-flex items-center gap-2 rounded-full bg-[image:var(--gradient-neon)] text-primary-foreground font-semibold px-6 py-3 neon-border hover:scale-[1.02] transition-transform"
-          >
-            Try it now <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link to="/history" className="rounded-full glass px-6 py-3 text-sm hover:bg-white/5 transition-colors">
-            See past discoveries
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              to="/scan"
+              className="inline-flex items-center gap-2 rounded-full bg-black/5 text-foreground font-semibold px-6 py-3 border border-black/10 hover:bg-black/10 transition-colors"
+            >
+              Scan Instrument
+            </Link>
+            <button
+              onClick={handleCreateRoom}
+              className="inline-flex items-center gap-2 rounded-full bg-[image:var(--gradient-neon)] text-primary-foreground font-semibold px-6 py-3 neon-border hover:scale-[1.02] transition-transform"
+            >
+              <Users className="h-4 w-4" /> Create Live Room
+            </button>
+            <Link to="/history" className="rounded-full glass px-6 py-3 text-sm hover:bg-black/5 transition-colors flex items-center justify-center">
+              Past Discoveries
+            </Link>
+          </div>
         </motion.div>
 
         <motion.div

@@ -40,7 +40,7 @@ function ScanPage() {
       const result = await analyze({ data: { imageDataUrl: dataUrl, mode } });
       const playable = mapToPlayable(result.instrument);
       const item = {
-        id: crypto.randomUUID(),
+        id: Math.random().toString(36).substring(2) + Date.now().toString(36),
         imageDataUrl: dataUrl,
         detection: { ...result, playable },
         createdAt: Date.now(),
@@ -109,7 +109,7 @@ function ScanPage() {
             <div className="mt-4 flex justify-center">
               <button
                 onClick={() => setLiveOpen(true)}
-                className="inline-flex items-center gap-2 glass rounded-full px-5 py-3 text-sm hover:bg-white/5 transition-colors"
+                className="inline-flex items-center gap-2 glass rounded-full px-5 py-3 text-sm hover:bg-black/5 transition-colors"
               >
                 <Camera className="h-4 w-4 text-primary" /> Use live camera
               </button>

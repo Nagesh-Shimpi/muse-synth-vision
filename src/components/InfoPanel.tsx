@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
-import { Globe2, Hourglass, ScrollText, Sparkles, Landmark } from "lucide-react";
+import { Globe2, Hourglass, ScrollText, Sparkles, Landmark, Youtube, BookOpen } from "lucide-react";
 import type { Detection } from "@/lib/instruments";
 
-function Row({ icon: Icon, label, value }: { icon: typeof Globe2; label: string; value?: string }) {
-  if (!value) return null;
+function Row({ icon: Icon, label, value, children }: { icon: typeof Globe2; label: string; value?: string; children?: React.ReactNode }) {
+  if (!value && !children) return null;
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -15,12 +15,16 @@ function Row({ icon: Icon, label, value }: { icon: typeof Globe2; label: string;
         <Icon className="h-3.5 w-3.5 text-primary" />
         {label}
       </div>
-      <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">{value}</p>
+      {value && <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">{value}</p>}
+      {children}
     </motion.div>
   );
 }
 
 export function InfoPanel({ detection }: { detection: Detection }) {
+  // Generate some mock tutorial data based on instrument
+  const mockYoutubeId = detection.instrument.toLowerCase().includes("sitar") ? "PTK8r30Aeyo" : "t8_88uWDEU8";
+
   return (
     <div className="grid sm:grid-cols-2 gap-3">
       <Row icon={Globe2} label="Origin" value={detection.origin} />
@@ -33,6 +37,33 @@ export function InfoPanel({ detection }: { detection: Detection }) {
       </div>
       <div className="sm:col-span-2">
         <Row icon={Sparkles} label="Did you know" value={detection.funFact} />
+      </div>
+      
+      {/* Learning Section Mock */}
+      <div className="sm:col-span-2">
+        <Row icon={BookOpen} label="How to Play">
+          <ul className="mt-2 list-disc list-inside text-sm text-foreground/90 space-y-1">
+            <li>Step 1: Understand the basic posture and hold the {detection.instrument} correctly.</li>
+            <li>Step 2: Familiarize yourself with the tuning and basic notes.</li>
+            <li>Step 3: Practice basic scales and rhythm exercises.</li>
+          </ul>
+        </Row>
+      </div>
+
+      <div className="sm:col-span-2">
+        <Row icon={Youtube} label="Video Tutorial">
+          <div className="mt-2 aspect-video rounded-xl overflow-hidden glass-strong">
+            <iframe 
+              width="100%" 
+              height="100%" 
+              src={`https://www.youtube.com/embed/${mockYoutubeId}`} 
+              title="YouTube video player" 
+              frameBorder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowFullScreen>
+            </iframe>
+          </div>
+        </Row>
       </div>
     </div>
   );

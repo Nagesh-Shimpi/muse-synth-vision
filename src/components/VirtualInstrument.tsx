@@ -329,7 +329,7 @@ const Fretboard = memo(function Fretboard({
         <div className="text-xs text-muted-foreground">Tap or swipe across strings to strum</div>
         <button
           onClick={strumAll}
-          className="text-xs glass rounded-full px-3 py-1.5 hover:bg-white/5 transition active:scale-95"
+          className="text-xs glass rounded-full px-3 py-1.5 hover:bg-black/5 transition active:scale-95"
         >
           Strum all
         </button>
@@ -751,45 +751,45 @@ const ReactiveHalo = memo(function ReactiveHalo({ color }: { color: string }) {
 const MOODS: Record<InstrumentKey, { label: string; glow: string; halo: string; bg: string }> = {
   Piano: {
     label: "Concert Hall",
-    glow: "oklch(0.78 0.18 230 / 0.55)",
-    halo: "from-sky-400/30 via-indigo-500/20 to-transparent",
-    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.45 0.18 240 / 0.35), transparent 70%)",
+    glow: "oklch(0.9 0.05 80 / 0.6)",
+    halo: "from-amber-100/50 via-orange-100/30 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.95 0.05 70 / 0.5), transparent 70%)",
   },
   Guitar: {
     label: "Warm Stage",
-    glow: "oklch(0.78 0.18 60 / 0.55)",
-    halo: "from-amber-400/30 via-orange-500/20 to-transparent",
-    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.18 60 / 0.35), transparent 70%)",
+    glow: "oklch(0.85 0.08 60 / 0.6)",
+    halo: "from-amber-200/40 via-orange-200/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.9 0.08 60 / 0.4), transparent 70%)",
   },
   Violin: {
     label: "Velvet Room",
-    glow: "oklch(0.78 0.18 350 / 0.55)",
-    halo: "from-rose-400/30 via-fuchsia-500/20 to-transparent",
-    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.2 350 / 0.35), transparent 70%)",
+    glow: "oklch(0.88 0.06 30 / 0.6)",
+    halo: "from-rose-100/50 via-red-100/30 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.92 0.06 30 / 0.4), transparent 70%)",
   },
   Sitar: {
     label: "Mystic Raga",
-    glow: "oklch(0.78 0.18 40 / 0.6)",
-    halo: "from-amber-300/40 via-rose-500/20 to-transparent",
-    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.2 40 / 0.4), transparent 70%)",
+    glow: "oklch(0.85 0.1 50 / 0.6)",
+    halo: "from-amber-300/30 via-orange-200/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.88 0.1 50 / 0.4), transparent 70%)",
   },
   Veena: {
     label: "Temple Glow",
-    glow: "oklch(0.8 0.18 80 / 0.55)",
-    halo: "from-amber-300/40 via-orange-500/20 to-transparent",
-    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.18 80 / 0.4), transparent 70%)",
+    glow: "oklch(0.82 0.12 70 / 0.6)",
+    halo: "from-yellow-200/40 via-amber-200/20 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.85 0.12 70 / 0.4), transparent 70%)",
   },
   Drums: {
     label: "Pulse Arena",
-    glow: "oklch(0.8 0.2 320 / 0.6)",
-    halo: "from-fuchsia-500/30 via-purple-500/20 to-transparent",
-    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.5 0.22 320 / 0.4), transparent 70%)",
+    glow: "oklch(0.85 0.05 320 / 0.6)",
+    halo: "from-fuchsia-100/50 via-purple-100/30 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.9 0.05 320 / 0.4), transparent 70%)",
   },
   Flute: {
     label: "Airy Mist",
-    glow: "oklch(0.82 0.15 180 / 0.55)",
-    halo: "from-cyan-300/30 via-teal-400/20 to-transparent",
-    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.15 180 / 0.35), transparent 70%)",
+    glow: "oklch(0.92 0.04 180 / 0.6)",
+    halo: "from-cyan-100/50 via-teal-100/30 to-transparent",
+    bg: "radial-gradient(80% 60% at 50% 0%, oklch(0.95 0.04 180 / 0.4), transparent 70%)",
   },
 };
 
@@ -879,7 +879,7 @@ export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
             <button
               onClick={() => setFs((v) => !v)}
               aria-label={fs ? "Exit fullscreen" : "Enter performance mode"}
-              className="h-8 w-8 grid place-items-center rounded-full glass hover:bg-white/5 transition"
+              className="h-8 w-8 grid place-items-center rounded-full glass hover:bg-black/5 transition"
             >
               {fs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
