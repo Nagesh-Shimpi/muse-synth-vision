@@ -11,9 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ResultRouteImport } from './routes/result'
+import { Route as JamRouteImport } from './routes/jam'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomRoomIdRouteImport } from './routes/room.$roomId'
+import { Route as JamCodeRouteImport } from './routes/jam.$code'
 
 const ScanRoute = ScanRouteImport.update({
   id: '/scan',
@@ -23,6 +25,11 @@ const ScanRoute = ScanRouteImport.update({
 const ResultRoute = ResultRouteImport.update({
   id: '/result',
   path: '/result',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JamRoute = JamRouteImport.update({
+  id: '/jam',
+  path: '/jam',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -40,40 +47,74 @@ const RoomRoomIdRoute = RoomRoomIdRouteImport.update({
   path: '/room/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JamCodeRoute = JamCodeRouteImport.update({
+  id: '/$code',
+  path: '/$code',
+  getParentRoute: () => JamRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
+  '/jam': typeof JamRouteWithChildren
   '/result': typeof ResultRoute
   '/scan': typeof ScanRoute
+  '/jam/$code': typeof JamCodeRoute
   '/room/$roomId': typeof RoomRoomIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
+  '/jam': typeof JamRouteWithChildren
   '/result': typeof ResultRoute
   '/scan': typeof ScanRoute
+  '/jam/$code': typeof JamCodeRoute
   '/room/$roomId': typeof RoomRoomIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
+  '/jam': typeof JamRouteWithChildren
   '/result': typeof ResultRoute
   '/scan': typeof ScanRoute
+  '/jam/$code': typeof JamCodeRoute
   '/room/$roomId': typeof RoomRoomIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/result' | '/scan' | '/room/$roomId'
+  fullPaths:
+    | '/'
+    | '/history'
+    | '/jam'
+    | '/result'
+    | '/scan'
+    | '/jam/$code'
+    | '/room/$roomId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/result' | '/scan' | '/room/$roomId'
-  id: '__root__' | '/' | '/history' | '/result' | '/scan' | '/room/$roomId'
+  to:
+    | '/'
+    | '/history'
+    | '/jam'
+    | '/result'
+    | '/scan'
+    | '/jam/$code'
+    | '/room/$roomId'
+  id:
+    | '__root__'
+    | '/'
+    | '/history'
+    | '/jam'
+    | '/result'
+    | '/scan'
+    | '/jam/$code'
+    | '/room/$roomId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HistoryRoute: typeof HistoryRoute
+  JamRoute: typeof JamRouteWithChildren
   ResultRoute: typeof ResultRoute
   ScanRoute: typeof ScanRoute
   RoomRoomIdRoute: typeof RoomRoomIdRoute
@@ -93,6 +134,13 @@ declare module '@tanstack/react-router' {
       path: '/result'
       fullPath: '/result'
       preLoaderRoute: typeof ResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jam': {
+      id: '/jam'
+      path: '/jam'
+      fullPath: '/jam'
+      preLoaderRoute: typeof JamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -116,12 +164,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoomRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/jam/$code': {
+      id: '/jam/$code'
+      path: '/$code'
+      fullPath: '/jam/$code'
+      preLoaderRoute: typeof JamCodeRouteImport
+      parentRoute: typeof JamRoute
+    }
   }
 }
+
+interface JamRouteChildren {
+  JamCodeRoute: typeof JamCodeRoute
+}
+
+const JamRouteChildren: JamRouteChildren = {
+  JamCodeRoute: JamCodeRoute,
+}
+
+const JamRouteWithChildren = JamRoute._addFileChildren(JamRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HistoryRoute: HistoryRoute,
+  JamRoute: JamRouteWithChildren,
   ResultRoute: ResultRoute,
   ScanRoute: ScanRoute,
   RoomRoomIdRoute: RoomRoomIdRoute,
