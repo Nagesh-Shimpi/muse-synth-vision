@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Music2, Sparkles, Clock, ScanLine } from "lucide-react";
+import { Music2, Sparkles, Clock, ScanLine, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef } from "react";
 
@@ -43,6 +43,7 @@ export function NavBar() {
           <nav className="flex items-center gap-1">
             <Item to="/" label="Home" icon={Sparkles} />
             <Item to="/scan" label="Scan" icon={ScanLine} />
+            <Item to="/jam" label="Jam" icon={Users} />
             <Item to="/history" label="History" icon={Clock} />
           </nav>
         </div>
