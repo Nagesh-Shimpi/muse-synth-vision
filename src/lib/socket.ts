@@ -10,8 +10,16 @@ export const getSocket = () => {
     socket = io(url, {
       autoConnect: false,
       extraHeaders: {
-        "Bypass-Tunnel-Reminder": "true"
-      }
+        "Bypass-Tunnel-Reminder": "true",
+      },
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("[Socket] Connection error:", err.message);
+    });
+
+    socket.on("error", (err) => {
+      console.error("[Socket] Socket error:", err);
     });
   }
   return socket;

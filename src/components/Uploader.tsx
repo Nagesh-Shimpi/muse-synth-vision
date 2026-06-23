@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Camera, ImagePlus, Loader2, Upload } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 type Props = {
   onPicked: (dataUrl: string) => void;
@@ -20,7 +21,8 @@ async function fileToDataUrl(file: File): Promise<string> {
   const w = Math.round(img.width * scale);
   const h = Math.round(img.height * scale);
   const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(img, 0, 0, w, h);
   URL.revokeObjectURL(img.src);
@@ -32,16 +34,31 @@ export function Uploader({ onPicked, loading }: Props) {
   const camRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const handleFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    const url = await fileToDataUrl(file);
-    onPicked(url);
-  }, [onPicked]);
+  const handleFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file");
+        return;
+      }
+      try {
+        const url = await fileToDataUrl(file);
+        onPicked(url);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Failed to process image";
+        console.error("[Uploader] Error processing file:", e);
+        toast.error(msg);
+      }
+    },
+    [onPicked],
+  );
 
   return (
     <div className="space-y-4">
       <motion.div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
@@ -53,7 +70,11 @@ export function Uploader({ onPicked, loading }: Props) {
         className={`glass-strong rounded-3xl p-8 sm:p-12 text-center transition-all ${dragOver ? "neon-border" : ""}`}
       >
         <div className="mx-auto mb-5 h-16 w-16 rounded-2xl bg-[image:var(--gradient-neon)] grid place-items-center neon-border animate-float-y">
-          {loading ? <Loader2 className="h-7 w-7 animate-spin text-primary-foreground" /> : <Upload className="h-7 w-7 text-primary-foreground" />}
+          {loading ? (
+            <Loader2 className="h-7 w-7 animate-spin text-primary-foreground" />
+          ) : (
+            <Upload className="h-7 w-7 text-primary-foreground" />
+          )}
         </div>
         <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
           Drop an instrument image
@@ -84,7 +105,10 @@ export function Uploader({ onPicked, loading }: Props) {
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFile(f);
+          }}
         />
         <input
           ref={camRef}
@@ -92,7 +116,10 @@ export function Uploader({ onPicked, loading }: Props) {
           accept="image/*"
           capture="environment"
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFile(f);
+          }}
         />
       </motion.div>
     </div>

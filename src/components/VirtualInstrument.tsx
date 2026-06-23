@@ -34,13 +34,12 @@ function useActive() {
   return { active, on, off };
 }
 
-
 function vibrate(ms = 8) {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
     try {
       navigator.vibrate(ms);
-    } catch {
-      /* noop */
+    } catch (e) {
+      console.warn("[VirtualInstrument] Vibration API error:", e);
     }
   }
 }
@@ -67,7 +66,11 @@ function buildPianoKeys(): PianoKey[] {
       }
     }
   }
-  keys.push({ note: `C${PIANO_OCTAVES[PIANO_OCTAVES.length - 1] + 1}`, black: false, shortcut: KB_MAP[shortcutIdx] });
+  keys.push({
+    note: `C${PIANO_OCTAVES[PIANO_OCTAVES.length - 1] + 1}`,
+    black: false,
+    shortcut: KB_MAP[shortcutIdx],
+  });
   return keys;
 }
 
@@ -118,7 +121,10 @@ const Piano = memo(function Piano({ sustain }: { sustain: boolean }) {
   );
 
   return (
-    <div className="w-full overflow-x-auto pb-2" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
+    <div
+      className="w-full overflow-x-auto pb-2"
+      style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+    >
       <div
         className="relative mx-auto select-none"
         style={{ width: `${whites.length * 48}px`, minWidth: "100%", touchAction: "none" }}
@@ -140,11 +146,15 @@ const Piano = memo(function Piano({ sustain }: { sustain: boolean }) {
               data-piano-key="1"
               data-note={k.note}
               className={`relative flex-1 h-40 sm:h-48 rounded-b-xl border border-border bg-gradient-to-b from-white to-zinc-200 text-zinc-700 font-semibold transition-transform duration-75 cursor-pointer ${
-                active.has(k.note) ? "translate-y-1 from-zinc-200 to-zinc-300 shadow-[inset_0_4px_12px_rgba(0,0,0,0.25)]" : ""
+                active.has(k.note)
+                  ? "translate-y-1 from-zinc-200 to-zinc-300 shadow-[inset_0_4px_12px_rgba(0,0,0,0.25)]"
+                  : ""
               }`}
               style={{ minWidth: 42 }}
             >
-              <span className="absolute bottom-1.5 left-0 right-0 text-[10px] opacity-50 text-center pointer-events-none">{k.note}</span>
+              <span className="absolute bottom-1.5 left-0 right-0 text-[10px] opacity-50 text-center pointer-events-none">
+                {k.note}
+              </span>
             </div>
           ))}
         </div>
@@ -166,14 +176,17 @@ const Piano = memo(function Piano({ sustain }: { sustain: boolean }) {
                 }`}
                 style={{ left: `${left}%` }}
               >
-                <span className="absolute bottom-1 left-0 right-0 text-center pointer-events-none">{k.note.replace(/\d/, "")}</span>
+                <span className="absolute bottom-1 left-0 right-0 text-center pointer-events-none">
+                  {k.note.replace(/\d/, "")}
+                </span>
               </div>
             );
           })}
         </div>
       </div>
       <div className="mt-3 text-center text-[11px] text-muted-foreground">
-        Tap, slide for glissando, or use keys <kbd className="px-1 rounded bg-white/10">A S D F G H J K L</kbd>
+        Tap, slide for glissando, or use keys{" "}
+        <kbd className="px-1 rounded bg-white/10">A S D F G H J K L</kbd>
       </div>
     </div>
   );
@@ -266,7 +279,8 @@ const Fretboard = memo(function Fretboard({
     vibrate(18);
   }, [get, tuning, on, off]);
 
-  const duration = flavor === "sitar" || flavor === "veena" ? "1n" : flavor === "violin" ? "2n" : "2n";
+  const duration =
+    flavor === "sitar" || flavor === "veena" ? "1n" : flavor === "violin" ? "2n" : "2n";
   const accent =
     flavor === "sitar"
       ? "from-amber-400 to-rose-500"
@@ -539,7 +553,11 @@ const Flute = memo(function Flute() {
   // Keep sustained-flute note in sync when fingering changes mid-blow
   useEffect(() => {
     if (blowingRef.current) {
-      try { getSustainedFlute().setNote(currentNote); } catch { /* noop */ }
+      try {
+        getSustainedFlute().setNote(currentNote);
+      } catch (e) {
+        console.warn("[Flute] Failed to update sustained note:", e);
+      }
     }
   }, [currentNote]);
 
@@ -570,7 +588,9 @@ const Flute = memo(function Flute() {
       setMicOn(true);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Microphone unavailable";
-      setMicError(msg.includes("denied") || msg.includes("Permission") ? "Microphone permission denied" : msg);
+      setMicError(
+        msg.includes("denied") || msg.includes("Permission") ? "Microphone permission denied" : msg,
+      );
       setMicOn(false);
     }
   }, [currentNote]);
@@ -580,13 +600,27 @@ const Flute = memo(function Flute() {
     breathRef.current = null;
     if (blowingRef.current) {
       blowingRef.current = false;
-      try { getSustainedFlute().stop(); } catch { /* noop */ }
+      try {
+        getSustainedFlute().stop();
+      } catch (e) {
+        console.warn("[Flute] Error stopping sustained flute on mic disable:", e);
+      }
     }
     setMicOn(false);
     setIntensity(0);
   }, []);
 
-  useEffect(() => () => { breathRef.current?.stop(); try { getSustainedFlute().stop(); } catch { /* noop */ } }, []);
+  useEffect(
+    () => () => {
+      breathRef.current?.stop();
+      try {
+        getSustainedFlute().stop();
+      } catch (e) {
+        console.warn("[Flute] Error stopping sustained flute on unmount:", e);
+      }
+    },
+    [],
+  );
 
   // Tap-to-play fallback (no mic)
   const tapPlay = useCallback(async () => {
@@ -599,22 +633,36 @@ const Flute = memo(function Flute() {
   const glow = Math.min(1, intensity * 1.4);
 
   return (
-    <div className="py-4 space-y-4" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
+    <div
+      className="py-4 space-y-4"
+      style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+    >
       {/* Flute body with finger holes */}
       <div className="relative mx-auto max-w-xl">
         <div
           className="h-16 sm:h-20 rounded-full bg-gradient-to-r from-amber-200/40 via-amber-100/20 to-amber-200/40 glass-strong flex items-center justify-around px-8 sm:px-12 relative overflow-hidden"
-          style={{ boxShadow: micOn ? `0 0 ${20 + glow * 60}px hsl(var(--primary) / ${0.2 + glow * 0.5})` : undefined }}
+          style={{
+            boxShadow: micOn
+              ? `0 0 ${20 + glow * 60}px hsl(var(--primary) / ${0.2 + glow * 0.5})`
+              : undefined,
+          }}
         >
           {covered.map((c, i) => (
             <button
               key={i}
-              onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setHole(i, true); }}
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setHole(i, true);
+              }}
               onPointerUp={() => setHole(i, false)}
               onPointerCancel={() => setHole(i, false)}
-              onPointerLeave={(e) => { if (e.buttons) setHole(i, false); }}
+              onPointerLeave={(e) => {
+                if (e.buttons) setHole(i, false);
+              }}
               className={`h-9 w-9 sm:h-11 sm:w-11 rounded-full border-2 transition-all touch-none ${
-                c ? "bg-[image:var(--gradient-neon)] border-white/40 neon-border scale-95" : "bg-background border-border"
+                c
+                  ? "bg-[image:var(--gradient-neon)] border-white/40 neon-border scale-95"
+                  : "bg-background border-border"
               }`}
               aria-label={`Hole ${i + 1}`}
             />
@@ -649,7 +697,9 @@ const Flute = memo(function Flute() {
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.08, ease: "linear" }}
             className="h-full bg-[image:var(--gradient-neon)]"
-            style={{ boxShadow: `0 0 ${10 + glow * 20}px hsl(var(--primary) / ${0.4 + glow * 0.6})` }}
+            style={{
+              boxShadow: `0 0 ${10 + glow * 20}px hsl(var(--primary) / ${0.4 + glow * 0.6})`,
+            }}
           />
         </div>
       </div>
@@ -704,11 +754,13 @@ const ReactiveHalo = memo(function ReactiveHalo({ color }: { color: string }) {
     const fft = getFFT();
     if (!fft) return;
     let raf = 0;
-    let bass = 0, treble = 0;
+    let bass = 0,
+      treble = 0;
     const tick = () => {
       const v = fft.getValue() as Float32Array;
       // bass = avg of lowest 8 bins, treble = avg of top 16 bins (values are dB, -100..0)
-      let b = 0, t = 0;
+      let b = 0,
+        t = 0;
       for (let i = 0; i < 8; i++) b += v[i] ?? -100;
       for (let i = v.length - 16; i < v.length; i++) t += v[i] ?? -100;
       const bN = Math.max(0, (b / 8 + 100) / 100);
@@ -746,7 +798,6 @@ const ReactiveHalo = memo(function ReactiveHalo({ color }: { color: string }) {
 /* -------------------------------------------------------------------------- */
 /*  Root                                                                      */
 /* -------------------------------------------------------------------------- */
-
 
 const MOODS: Record<InstrumentKey, { label: string; glow: string; halo: string; bg: string }> = {
   Piano: {
@@ -797,7 +848,10 @@ export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
   const [sustain, setSustain] = useState(false);
   const [fs, setFs] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
-  const [loadCounts, setLoadCounts] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [loadCounts, setLoadCounts] = useState<{ done: number; total: number }>({
+    done: 0,
+    total: 0,
+  });
   const [ready, setReady] = useState(false);
 
   // Preload samples whenever the active instrument changes
@@ -806,24 +860,33 @@ export function VirtualInstrument({ kind }: { kind: InstrumentKey }) {
     setReady(false);
     setLoadProgress(0);
     setLoadCounts({ done: 0, total: 0 });
-    ensureAudio().then(() =>
-      preloadInstrument(kind, (ratio, done, total) => {
-        if (cancelled) return;
-        setLoadProgress(ratio);
-        setLoadCounts({ done, total });
-      }).then(() => {
+    ensureAudio()
+      .then(() =>
+        preloadInstrument(kind, (ratio, done, total) => {
+          if (cancelled) return;
+          setLoadProgress(ratio);
+          setLoadCounts({ done, total });
+        }),
+      )
+      .then(() => {
         if (!cancelled) setReady(true);
-      }),
-    );
+      })
+      .catch((e) => {
+        console.error(`[VirtualInstrument] Failed to preload "${kind}":`, e);
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [kind]);
 
   const fretConfig = useMemo(() => {
-    if (kind === "Sitar") return { tuning: SITAR_TUNING, get: getSitar, flavor: "sitar" as const, frets: 6 };
-    if (kind === "Veena") return { tuning: VEENA_TUNING, get: getVeena, flavor: "veena" as const, frets: 6 };
-    if (kind === "Violin") return { tuning: VIOLIN_TUNING, get: getViolin, flavor: "violin" as const, frets: 5 };
+    if (kind === "Sitar")
+      return { tuning: SITAR_TUNING, get: getSitar, flavor: "sitar" as const, frets: 6 };
+    if (kind === "Veena")
+      return { tuning: VEENA_TUNING, get: getVeena, flavor: "veena" as const, frets: 6 };
+    if (kind === "Violin")
+      return { tuning: VIOLIN_TUNING, get: getViolin, flavor: "violin" as const, frets: 5 };
     return { tuning: GUITAR_TUNING, get: getGuitar, flavor: "guitar" as const, frets: 5 };
   }, [kind]);
 
