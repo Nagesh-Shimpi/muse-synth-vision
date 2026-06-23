@@ -1,8 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 const InputSchema = z.object({
-  imageDataUrl: z.string().min(20).max(8_000_000),
+  imageDataUrl: z
+    .string()
+    .min(20)
+    .max(5_000_000)
+    .refine((s) => s.startsWith("data:image/"), "Must be a data:image/ URI"),
   mode: z.enum(["photo", "painting"]).optional().default("photo"),
 });
 
@@ -19,19 +24,54 @@ const ResponseSchema = z.object({
   isArtwork: z.boolean().optional().default(false),
 });
 
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX_CALLS = 10;
+const rateBuckets = new Map<string, { tokens: number; refill: number }>();
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now();
+  let bucket = rateBuckets.get(key);
+  if (!bucket || now - bucket.refill >= RATE_WINDOW_MS) {
+    bucket = { tokens: RATE_MAX_CALLS, refill: now };
+    rateBuckets.set(key, bucket);
+  }
+  if (bucket.tokens <= 0) return false;
+  bucket.tokens--;
+
+  // Inline prune: cap map size to prevent unbounded growth
+  if (rateBuckets.size > 10_000) {
+    const cutoff = now - RATE_WINDOW_MS * 2;
+    for (const [k, b] of rateBuckets) {
+      if (b.refill < cutoff) rateBuckets.delete(k);
+    }
+  }
+  return true;
+}
+
 export const analyzeInstrument = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }) => {
+    const request = getRequest();
+    const clientIp =
+      request?.headers?.get("cf-connecting-ip") ??
+      request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown";
+    if (!checkRateLimit(clientIp)) {
+      throw new Error("Rate limit exceeded. Please try again in a minute.");
+    }
+
     const getMockResponse = () => {
       const isPainting = data.mode === "painting";
       return {
         instrument: "Virtual Sitar (Mock)",
         confidence: 99,
         family: "String",
-        description: "This is a mock response because the AI credits were exhausted. The Sitar is a plucked stringed instrument.",
+        description:
+          "This is a mock response because the AI credits were exhausted. The Sitar is a plucked stringed instrument.",
         origin: "India",
         era: "16th Century",
-        history: "The sitar flourished under the Mughals and became popular in classical Hindustani music.",
+        history:
+          "The sitar flourished under the Mughals and became popular in classical Hindustani music.",
         cultural: "A symbol of Indian classical music worldwide.",
         funFact: "It has sympathetic strings that resonate without being plucked.",
         isArtwork: isPainting,
@@ -84,11 +124,15 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
                 type: "object",
                 additionalProperties: false,
                 properties: {
-                  instrument: { type: "string", description: "Common name e.g. Violin, Grand Piano, Sitar" },
+                  instrument: {
+                    type: "string",
+                    description: "Common name e.g. Violin, Grand Piano, Sitar",
+                  },
                   confidence: { type: "number", description: "0 to 100" },
                   family: {
                     type: "string",
-                    description: "One of: String, Keyboard, Wind, Brass, Percussion, Plucked, Bowed, Electronic, Unknown",
+                    description:
+                      "One of: String, Keyboard, Wind, Brass, Percussion, Plucked, Bowed, Electronic, Unknown",
                   },
                   description: { type: "string" },
                   origin: { type: "string", description: "Country / region of origin" },
@@ -96,7 +140,10 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
                   history: { type: "string", description: "2-3 sentence history" },
                   cultural: { type: "string", description: "Cultural / musical significance" },
                   funFact: { type: "string", description: "One surprising fact" },
-                  isArtwork: { type: "boolean", description: "True if the source is a painting/sculpture/artwork" },
+                  isArtwork: {
+                    type: "boolean",
+                    description: "True if the source is a painting/sculpture/artwork",
+                  },
                 },
                 required: [
                   "instrument",
@@ -122,7 +169,7 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
       console.log(`API returned ${res.status}, falling back to mock`);
       return getMockResponse();
     }
-    
+
     if (!res.ok) {
       const text = await res.text();
       console.log(`API returned ${res.status}: ${text}, falling back to mock`);
@@ -131,7 +178,9 @@ export const analyzeInstrument = createServerFn({ method: "POST" })
 
     try {
       const json = (await res.json()) as {
-        choices?: Array<{ message?: { tool_calls?: Array<{ function?: { arguments?: string } }> } }>;
+        choices?: Array<{
+          message?: { tool_calls?: Array<{ function?: { arguments?: string } }> };
+        }>;
       };
       const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       if (!args) throw new Error("AI did not return a structured response");
