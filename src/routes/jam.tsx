@@ -5,6 +5,7 @@ import { Users, Plus, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getGuest, randomRoomCode, updateGuest } from "@/lib/jam-identity";
 import { toast } from "sonner";
+import { extractErrorMessage } from "@/lib/utils";
 
 export const Route = createFileRoute("/jam")({
   head: () => ({
@@ -42,7 +43,7 @@ function JamLobby() {
       if (error) throw error;
       navigate({ to: "/jam/$code", params: { code: newCode } });
     } catch (e) {
-      toast.error("Could not create room", { description: (e as Error).message });
+      toast.error("Could not create room", { description: extractErrorMessage(e, "Unknown error") });
     } finally {
       setBusy(false);
     }
@@ -66,7 +67,7 @@ function JamLobby() {
       }
       navigate({ to: "/jam/$code", params: { code: trimmed } });
     } catch (e) {
-      toast.error("Could not join", { description: (e as Error).message });
+      toast.error("Could not join", { description: extractErrorMessage(e, "Unknown error") });
       setBusy(false);
     }
   };

@@ -1,6 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Maximize2, Minimize2, Mic, MicOff } from "lucide-react";
+import { useActive } from "@/hooks/useActive";
+import { vibrate, extractErrorMessage } from "@/lib/utils";
+import { noteAt } from "@/lib/music-theory";
+import { DRUM_PADS, type DrumPadId } from "@/lib/drum-pads";
 import {
   ensureAudio,
   getPiano,
@@ -17,33 +21,7 @@ import {
 import { startBreathDetection, type BreathHandle } from "@/lib/breath-engine";
 import type { InstrumentKey } from "@/lib/instruments";
 
-/* -------------------------------------------------------------------------- */
-/*  helpers                                                                   */
-/* -------------------------------------------------------------------------- */
 
-function useActive() {
-  const [active, setActive] = useState<Set<string>>(new Set());
-  const on = (k: string) => setActive((s) => (s.has(k) ? s : new Set(s).add(k)));
-  const off = (k: string) =>
-    setActive((s) => {
-      if (!s.has(k)) return s;
-      const n = new Set(s);
-      n.delete(k);
-      return n;
-    });
-  return { active, on, off };
-}
-
-
-function vibrate(ms = 8) {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try {
-      navigator.vibrate(ms);
-    } catch {
-      /* noop */
-    }
-  }
-}
 
 /* -------------------------------------------------------------------------- */
 /*  PIANO – 2 octaves, multitouch, keyboard shortcuts, sustain                */
@@ -217,17 +195,7 @@ const VEENA_TUNING: StringDef[] = [
   { open: "C4", label: "Sa'" },
 ];
 
-const NOTE_ORDER = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-function noteAt(open: string, fret: number): string {
-  const m = /^([A-G]#?)(\d)$/.exec(open);
-  if (!m) return open;
-  const idx = NOTE_ORDER.indexOf(m[1]);
-  const oct = parseInt(m[2], 10);
-  const total = idx + fret;
-  const newIdx = ((total % 12) + 12) % 12;
-  const newOct = oct + Math.floor(total / 12);
-  return `${NOTE_ORDER[newIdx]}${newOct}`;
-}
+
 
 const Fretboard = memo(function Fretboard({
   tuning,
@@ -391,14 +359,7 @@ const Fretboard = memo(function Fretboard({
 /*  DRUMS – 6 pads with ripple + beat dot                                     */
 /* -------------------------------------------------------------------------- */
 
-const DRUM_PADS = [
-  { id: "kick", label: "Kick", key: "Z" },
-  { id: "snare", label: "Snare", key: "X" },
-  { id: "hat", label: "Hi-Hat", key: "C" },
-  { id: "tom", label: "Tom", key: "V" },
-  { id: "kick", label: "Kick 2", key: "B", alt: true },
-  { id: "hat", label: "Crash", key: "N", alt: true },
-] as const;
+
 
 const Drums = memo(function Drums() {
   const { active, on, off } = useActive();
@@ -407,7 +368,7 @@ const Drums = memo(function Drums() {
   const lastHit = useRef<Record<string, number>>({});
 
   const hit = useCallback(
-    async (id: "kick" | "snare" | "hat" | "tom", key: string) => {
+    async (id: DrumPadId, key: string) => {
       await ensureAudio();
       const now = performance.now();
       const dt = now - (lastHit.current[key] ?? 0);
@@ -425,7 +386,7 @@ const Drums = memo(function Drums() {
   );
 
   useEffect(() => {
-    const map: Record<string, { id: "kick" | "snare" | "hat" | "tom"; key: string }> = {};
+    const map: Record<string, { id: DrumPadId; key: string }> = {};
     DRUM_PADS.forEach((p) => (map[p.key.toLowerCase()] = { id: p.id, key: p.key }));
     const down = (e: KeyboardEvent) => {
       if (e.repeat) return;
@@ -569,7 +530,7 @@ const Flute = memo(function Flute() {
       breathRef.current = handle;
       setMicOn(true);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Microphone unavailable";
+      const msg = extractErrorMessage(e, "Microphone unavailable");
       setMicError(msg.includes("denied") || msg.includes("Permission") ? "Microphone permission denied" : msg);
       setMicOn(false);
     }

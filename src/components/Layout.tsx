@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { Music2, Sparkles, Clock, ScanLine, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useRef } from "react";
+import { setupCanvasDpr } from "@/lib/canvas-utils";
 
 export function NavBar() {
   const location = useLocation();
@@ -61,14 +62,11 @@ export function Particles() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let w = 0, h = 0, dpr = 1;
+    let w = 0, h = 0;
     const resize = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      w = canvas.clientWidth;
-      h = canvas.clientHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const dims = setupCanvasDpr(canvas, ctx);
+      w = dims.w;
+      h = dims.h;
     };
     resize();
     window.addEventListener("resize", resize);

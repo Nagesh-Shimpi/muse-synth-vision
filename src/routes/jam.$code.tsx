@@ -3,17 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, LogOut, Users, Music2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  ensureAudio,
-  getPiano,
-  getGuitar,
-  getViolin,
-  getFlute,
-  getSitar,
-  getVeena,
-  triggerDrum,
-} from "@/lib/audio-engine";
+import { ensureAudio } from "@/lib/audio-engine";
 import { KNOWN_INSTRUMENTS, type InstrumentKey } from "@/lib/instruments";
+import { playInstrumentNote } from "@/lib/play-note";
+import { DRUM_PADS_SIMPLE } from "@/lib/drum-pads";
 import { getGuest, updateGuest, type GuestIdentity } from "@/lib/jam-identity";
 import { joinJam, type JamHandle, type NoteEvent, type PresenceState } from "@/lib/jam-channel";
 
@@ -30,15 +23,7 @@ export const Route = createFileRoute("/jam/$code")({
 });
 
 function playLocal(inst: InstrumentKey, note: string) {
-  switch (inst) {
-    case "Piano":  getPiano().triggerAttackRelease(note, "8n"); break;
-    case "Guitar": getGuitar().triggerAttackRelease(note, "2n"); break;
-    case "Violin": getViolin().triggerAttackRelease(note, "2n"); break;
-    case "Flute":  getFlute().triggerAttackRelease(note, "4n"); break;
-    case "Sitar":  getSitar().triggerAttackRelease(note, "1n"); break;
-    case "Veena":  getVeena().triggerAttackRelease(note, "1n"); break;
-    case "Drums":  triggerDrum(note as "kick" | "snare" | "hat" | "tom"); break;
-  }
+  playInstrumentNote(inst, note);
 }
 
 function JamRoom() {
@@ -219,12 +204,7 @@ function JamRoom() {
 
 const SCALE_NOTES = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5", "A5", "B5"];
 const KB_KEYS = "asdfghjklqwerty".split("");
-const DRUM_PADS: Array<{ id: "kick" | "snare" | "hat" | "tom"; label: string; key: string }> = [
-  { id: "kick", label: "Kick", key: "z" },
-  { id: "snare", label: "Snare", key: "x" },
-  { id: "hat", label: "Hi-Hat", key: "c" },
-  { id: "tom", label: "Tom", key: "v" },
-];
+
 
 function PlaySurface({ instrument, onTrigger }: { instrument: InstrumentKey; onTrigger: (note: string, vel?: number) => void }) {
   // Keyboard shortcuts
@@ -233,7 +213,7 @@ function PlaySurface({ instrument, onTrigger }: { instrument: InstrumentKey; onT
       if (e.repeat) return;
       const k = e.key.toLowerCase();
       if (instrument === "Drums") {
-        const pad = DRUM_PADS.find((p) => p.key === k);
+        const pad = DRUM_PADS_SIMPLE.find((p) => p.key === k);
         if (pad) onTrigger(pad.id);
       } else {
         const idx = KB_KEYS.indexOf(k);
@@ -247,7 +227,7 @@ function PlaySurface({ instrument, onTrigger }: { instrument: InstrumentKey; onT
   if (instrument === "Drums") {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-1">
-        {DRUM_PADS.map((p) => (
+        {DRUM_PADS_SIMPLE.map((p) => (
           <PadButton key={p.id} label={p.label} hint={p.key.toUpperCase()} onHit={() => onTrigger(p.id)} />
         ))}
       </div>

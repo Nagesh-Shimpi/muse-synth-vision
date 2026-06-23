@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { generateId, extractErrorMessage } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Image as ImageIcon, Palette } from "lucide-react";
 import { Uploader } from "@/components/Uploader";
@@ -40,7 +41,7 @@ function ScanPage() {
       const result = await analyze({ data: { imageDataUrl: dataUrl, mode } });
       const playable = mapToPlayable(result.instrument);
       const item = {
-        id: Math.random().toString(36).substring(2) + Date.now().toString(36),
+        id: generateId(),
         imageDataUrl: dataUrl,
         detection: { ...result, playable },
         createdAt: Date.now(),
@@ -49,7 +50,7 @@ function ScanPage() {
       setCurrent(item);
       navigate({ to: "/result" });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Analysis failed";
+      const msg = extractErrorMessage(e, "Analysis failed");
       toast.error(msg);
       setLoading(false);
       setImage(null);

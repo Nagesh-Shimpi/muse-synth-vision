@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ensureAudio, getAnalyser } from "@/lib/audio-engine";
+import { setupCanvasDpr } from "@/lib/canvas-utils";
 
 export function Waveform({ height = 96, variant = "combo" }: { height?: number; variant?: "wave" | "bars" | "combo" }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -22,14 +23,12 @@ export function Waveform({ height = 96, variant = "combo" }: { height?: number; 
         }
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
-        const dpr = window.devicePixelRatio || 1;
-        const w = canvas.clientWidth,
-          h = canvas.clientHeight;
-        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-          canvas.width = w * dpr;
-          canvas.height = h * dpr;
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const cw = canvas.clientWidth, ch = canvas.clientHeight;
+        if (canvas.width !== cw * dpr || canvas.height !== ch * dpr) {
+          setupCanvasDpr(canvas, ctx);
         }
+        const w = canvas.clientWidth, h = canvas.clientHeight;
         ctx.clearRect(0, 0, w, h);
 
         const data = a.getValue() as Float32Array;
