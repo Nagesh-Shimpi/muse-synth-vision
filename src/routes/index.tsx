@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ArrowRight, Brain, Sparkles, Waves, Users } from "lucide-react";
+import { generateId } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,7 +17,7 @@ function Index() {
   const navigate = useNavigate();
 
   const handleCreateRoom = () => {
-    const id = Math.random().toString(36).substring(2, 8);
+    const id = generateId();
     navigate({ to: `/room/${id}` });
   };
 

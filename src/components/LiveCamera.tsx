@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Camera, X, Zap } from "lucide-react";
+import { extractErrorMessage } from "@/lib/utils";
 
 type Props = {
   onCapture: (dataUrl: string) => void;
@@ -32,7 +33,7 @@ export function LiveCamera({ onCapture, onClose }: Props) {
           setReady(true);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Camera unavailable");
+        setError(extractErrorMessage(e, "Camera unavailable"));
       }
     })();
     return () => {

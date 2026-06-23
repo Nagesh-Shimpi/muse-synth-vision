@@ -1,15 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
-import {
-  getPiano,
-  getGuitar,
-  getViolin,
-  getFlute,
-  getSitar,
-  getVeena,
-  triggerDrum,
-  setSuppressEvent
-} from "@/lib/audio-engine";
+import { setSuppressEvent } from "@/lib/audio-engine";
+import { playInstrumentNote } from "@/lib/play-note";
+import type { InstrumentKey } from "@/lib/instruments";
 
 export type RoomUser = {
   id: string;
@@ -42,18 +35,11 @@ export function useMultiplayer(roomId: string | null, userName: string, defaultI
       setUsers(roomUsers);
     };
 
-    const onRemotePlayNote = ({ instrumentType, note, velocity }: any) => {
+    const onRemotePlayNote = ({ instrumentType, note }: { instrumentType: string; note: string }) => {
       try {
         setSuppressEvent(true);
-        switch (instrumentType.toLowerCase()) {
-          case "piano": getPiano().triggerAttackRelease(note, "8n"); break;
-          case "guitar": getGuitar().triggerAttackRelease(note, "4n"); break;
-          case "violin": getViolin().triggerAttackRelease(note, "4n"); break;
-          case "flute": getFlute().triggerAttackRelease(note, "4n"); break;
-          case "sitar": getSitar().triggerAttackRelease(note, "2n"); break;
-          case "veena": getVeena().triggerAttackRelease(note, "2n"); break;
-          case "drums": triggerDrum(note as any); break;
-        }
+        const key = (instrumentType.charAt(0).toUpperCase() + instrumentType.slice(1).toLowerCase()) as InstrumentKey;
+        playInstrumentNote(key, note);
       } catch (e) {
         console.error("Remote play note failed", e);
       } finally {

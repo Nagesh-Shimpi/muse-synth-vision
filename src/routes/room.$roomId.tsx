@@ -5,7 +5,8 @@ import { Copy, Users, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useMultiplayer } from "@/hooks/useMultiplayer";
 import { VirtualInstrument } from "@/components/VirtualInstrument";
-import type { InstrumentKey } from "@/lib/instruments";
+import { KNOWN_INSTRUMENTS, type InstrumentKey } from "@/lib/instruments";
+import { generateId } from "@/lib/utils";
 
 export const Route = createFileRoute("/room/$roomId")({
   component: RoomPage,
@@ -16,9 +17,9 @@ function RoomPage() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("muse_username") || "Guest " + Math.floor(Math.random() * 1000);
+      return localStorage.getItem("muse_username") || "Guest " + generateId().slice(0, 4);
     }
-    return "Guest " + Math.floor(Math.random() * 1000);
+    return "Guest " + generateId().slice(0, 4);
   });
   const [joined, setJoined] = useState(false);
   const [instrument, setInstrument] = useState<InstrumentKey>("Piano");
@@ -82,12 +83,9 @@ function RoomPage() {
                 onChange={(e) => setInstrument(e.target.value as InstrumentKey)}
                 className="w-full mt-1 bg-black/5 border border-black/10 rounded-xl px-4 py-3 outline-none focus:border-primary transition-colors text-foreground"
               >
-                <option value="Piano">Grand Piano</option>
-                <option value="Guitar">Acoustic Guitar</option>
-                <option value="Violin">Violin</option>
-                <option value="Flute">Flute</option>
-                <option value="Sitar">Sitar</option>
-                <option value="Drums">Drum Kit</option>
+                {KNOWN_INSTRUMENTS.map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
               </select>
             </div>
             <button
@@ -152,12 +150,9 @@ function RoomPage() {
                 onChange={(e) => setInstrument(e.target.value as InstrumentKey)}
                 className="w-full bg-black/5 border border-black/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary transition-colors text-foreground"
               >
-                <option value="Piano">Grand Piano</option>
-                <option value="Guitar">Acoustic Guitar</option>
-                <option value="Violin">Violin</option>
-                <option value="Flute">Flute</option>
-                <option value="Sitar">Sitar</option>
-                <option value="Drums">Drum Kit</option>
+                {KNOWN_INSTRUMENTS.map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
             </select>
           </div>
         </div>
