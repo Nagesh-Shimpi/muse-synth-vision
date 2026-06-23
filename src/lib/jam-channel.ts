@@ -8,19 +8,22 @@ export type NoteEvent = {
   name: string;
   color: string;
   inst: InstrumentKey;
-  note: string;       // e.g. "C4" or drum id "kick"
-  vel: number;        // 0..1
-  t: number;          // sender's Date.now()
+  note: string; // e.g. "C4" or drum id "kick"
+  vel: number; // 0..1
+  t: number; // sender's Date.now()
 };
 
-export type PresenceState = Record<string, Array<{
-  uid: string;
-  name: string;
-  color: string;
-  avatar: string;
-  instrument: InstrumentKey;
-  online_at: number;
-}>>;
+export type PresenceState = Record<
+  string,
+  Array<{
+    uid: string;
+    name: string;
+    color: string;
+    avatar: string;
+    instrument: InstrumentKey;
+    online_at: number;
+  }>
+>;
 
 export type JamHandle = {
   channel: RealtimeChannel;
@@ -66,8 +69,14 @@ export function joinJam(opts: {
       if (Date.now() - n.t > 250) return;
       onNote(n);
     })
-    .subscribe((status) => {
-      if (status === "SUBSCRIBED") trackPresence();
+    .subscribe((status, err) => {
+      if (status === "SUBSCRIBED") {
+        trackPresence();
+      } else if (status === "CHANNEL_ERROR") {
+        console.error(`[JamChannel] Channel subscription error for room "${code}":`, err);
+      } else if (status === "TIMED_OUT") {
+        console.warn(`[JamChannel] Channel subscription timed out for room "${code}"`);
+      }
     });
 
   return {

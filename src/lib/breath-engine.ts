@@ -7,8 +7,8 @@
 
 export type BreathState = {
   intensity: number; // smoothed 0..1
-  raw: number;       // instantaneous 0..1
-  active: boolean;   // crossed the threshold
+  raw: number; // instantaneous 0..1
+  active: boolean; // crossed the threshold
 };
 
 export type BreathHandle = {
@@ -17,8 +17,8 @@ export type BreathHandle = {
 };
 
 export type BreathOptions = {
-  threshold?: number;        // 0..1, activation floor
-  smoothing?: number;        // 0..1, low-pass coefficient (higher = smoother)
+  threshold?: number; // 0..1, activation floor
+  smoothing?: number; // 0..1, low-pass coefficient (higher = smoother)
   onUpdate: (s: BreathState) => void;
 };
 
@@ -50,7 +50,11 @@ export async function startBreathDetection(opts: BreathOptions): Promise<BreathH
   }
   const ctx = sharedCtx;
   if (ctx.state !== "running") {
-    try { await ctx.resume(); } catch { /* noop */ }
+    try {
+      await ctx.resume();
+    } catch (e) {
+      console.warn("[BreathEngine] AudioContext resume failed:", e);
+    }
   }
 
   const source = ctx.createMediaStreamSource(stream);
@@ -87,7 +91,9 @@ export async function startBreathDetection(opts: BreathOptions): Promise<BreathH
     active = smoothed > threshold;
     opts.onUpdate({ intensity: smoothed, raw, active });
     // Optional logging suppressed to avoid console spam
-    if (!wasActive && active) { /* attack edge */ }
+    if (!wasActive && active) {
+      /* attack edge */
+    }
     raf = requestAnimationFrame(tick);
   };
   raf = requestAnimationFrame(tick);
@@ -96,7 +102,13 @@ export async function startBreathDetection(opts: BreathOptions): Promise<BreathH
     stop: () => {
       stopped = true;
       cancelAnimationFrame(raf);
-      try { source.disconnect(); hp.disconnect(); analyser.disconnect(); } catch { /* noop */ }
+      try {
+        source.disconnect();
+        hp.disconnect();
+        analyser.disconnect();
+      } catch (e) {
+        console.warn("[BreathEngine] Error disconnecting audio nodes on stop:", e);
+      }
     },
     isActive: () => active,
   };

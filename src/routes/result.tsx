@@ -50,10 +50,22 @@ function ResultPage() {
   const share = async () => {
     const text = `I just identified a ${detection.instrument} with Virtual Instrument Vision AI!`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Virtual Instrument Vision AI", text }); } catch { /* ignore */ }
+      try {
+        await navigator.share({ title: "Virtual Instrument Vision AI", text });
+      } catch (e) {
+        if (e instanceof Error && e.name !== "AbortError") {
+          console.warn("[Result] Share API error:", e);
+          toast.error("Sharing failed");
+        }
+      }
     } else {
-      await navigator.clipboard.writeText(text);
-      toast.success("Copied to clipboard");
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success("Copied to clipboard");
+      } catch (e) {
+        console.error("[Result] Clipboard write failed:", e);
+        toast.error("Could not copy to clipboard");
+      }
     }
   };
 
@@ -76,7 +88,11 @@ function ResultPage() {
         >
           <div className="glass-strong rounded-3xl overflow-hidden relative">
             <div className="relative aspect-square">
-              <img src={imageDataUrl} alt={detection.instrument} className="w-full h-full object-cover" />
+              <img
+                src={imageDataUrl}
+                alt={detection.instrument}
+                className="w-full h-full object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/10 to-transparent" />
               {detection.isArtwork && (
                 <div className="absolute top-3 left-3 glass rounded-full px-3 py-1 text-xs flex items-center gap-1.5">
@@ -88,7 +104,9 @@ function ResultPage() {
                   <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
                     {detection.family} family · {detection.era || "—"}
                   </div>
-                  <h2 className="mt-0.5 text-2xl sm:text-3xl font-semibold neon-text truncate">{detection.instrument}</h2>
+                  <h2 className="mt-0.5 text-2xl sm:text-3xl font-semibold neon-text truncate">
+                    {detection.instrument}
+                  </h2>
                 </div>
                 <ConfidenceRing value={detection.confidence} size={84} />
               </div>
@@ -96,13 +114,22 @@ function ResultPage() {
             <div className="p-5 pt-4">
               <p className="text-sm text-muted-foreground">{detection.description}</p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={share} className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition">
+                <button
+                  onClick={share}
+                  className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition"
+                >
                   <Share2 className="h-4 w-4" /> Share
                 </button>
-                <button onClick={download} className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition">
+                <button
+                  onClick={download}
+                  className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition"
+                >
                   <Download className="h-4 w-4" /> Save image
                 </button>
-                <Link to="/scan" className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition">
+                <Link
+                  to="/scan"
+                  className="inline-flex items-center gap-2 glass rounded-full px-3 py-2 text-sm hover:bg-black/5 transition"
+                >
                   <RotateCcw className="h-4 w-4" /> New scan
                 </Link>
               </div>
@@ -130,12 +157,18 @@ function ResultPage() {
               <div className="flex items-center justify-between glass rounded-2xl px-4 py-3">
                 <div className="text-sm min-w-0">
                   <div className="font-semibold truncate">Virtual {detection.playable}</div>
-                  <div className="text-xs text-muted-foreground">Tap, click, or use your keyboard</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tap, click, or use your keyboard
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     aria-label={muted ? "Unmute" : "Mute"}
-                    onClick={() => { const m = !muted; setMutedState(m); setMuted(m); }}
+                    onClick={() => {
+                      const m = !muted;
+                      setMutedState(m);
+                      setMuted(m);
+                    }}
                     className="h-9 w-9 grid place-items-center rounded-full glass"
                   >
                     {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -160,7 +193,8 @@ function ResultPage() {
             <div className="glass-strong rounded-3xl p-8 text-center">
               <h3 className="text-xl font-semibold">Playable version coming soon</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                We don't have a virtual {detection.instrument} yet — but it has been added to your museum history.
+                We don't have a virtual {detection.instrument} yet — but it has been added to your
+                museum history.
               </p>
               <Link
                 to="/scan"

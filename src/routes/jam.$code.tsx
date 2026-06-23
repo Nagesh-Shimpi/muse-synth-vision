@@ -21,7 +21,10 @@ export const Route = createFileRoute("/jam/$code")({
   head: ({ params }) => ({
     meta: [
       { title: `Jam Room ${params.code} — Virtual Instrument Vision AI` },
-      { name: "description", content: `Live collaborative jam room ${params.code}. Play instruments together in real time.` },
+      {
+        name: "description",
+        content: `Live collaborative jam room ${params.code}. Play instruments together in real time.`,
+      },
       { property: "og:title", content: `Join jam room ${params.code}` },
       { property: "og:description", content: "Hop in and play instruments live with friends." },
     ],
@@ -31,13 +34,27 @@ export const Route = createFileRoute("/jam/$code")({
 
 function playLocal(inst: InstrumentKey, note: string) {
   switch (inst) {
-    case "Piano":  getPiano().triggerAttackRelease(note, "8n"); break;
-    case "Guitar": getGuitar().triggerAttackRelease(note, "2n"); break;
-    case "Violin": getViolin().triggerAttackRelease(note, "2n"); break;
-    case "Flute":  getFlute().triggerAttackRelease(note, "4n"); break;
-    case "Sitar":  getSitar().triggerAttackRelease(note, "1n"); break;
-    case "Veena":  getVeena().triggerAttackRelease(note, "1n"); break;
-    case "Drums":  triggerDrum(note as "kick" | "snare" | "hat" | "tom"); break;
+    case "Piano":
+      getPiano().triggerAttackRelease(note, "8n");
+      break;
+    case "Guitar":
+      getGuitar().triggerAttackRelease(note, "2n");
+      break;
+    case "Violin":
+      getViolin().triggerAttackRelease(note, "2n");
+      break;
+    case "Flute":
+      getFlute().triggerAttackRelease(note, "4n");
+      break;
+    case "Sitar":
+      getSitar().triggerAttackRelease(note, "1n");
+      break;
+    case "Veena":
+      getVeena().triggerAttackRelease(note, "1n");
+      break;
+    case "Drums":
+      triggerDrum(note as "kick" | "snare" | "hat" | "tom");
+      break;
   }
 }
 
@@ -59,7 +76,11 @@ function JamRoom() {
       guest: g,
       onNote: async (n) => {
         await ensureAudio();
-        try { playLocal(n.inst, n.note); } catch { /* noop */ }
+        try {
+          playLocal(n.inst, n.note);
+        } catch (e) {
+          console.warn("[JamRoom] Failed to play remote note:", n.inst, n.note, e);
+        }
         const rid = `${n.uid}-${n.t}-${Math.random()}`;
         setRipples((r) => [...r, { id: rid, color: n.color, note: `${n.name} · ${n.note}` }]);
         window.setTimeout(() => setRipples((r) => r.filter((x) => x.id !== rid)), 900);
@@ -68,12 +89,20 @@ function JamRoom() {
     });
     handleRef.current = handle;
     setReady(true);
-    return () => { handle.close(); handleRef.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      handle.close();
+      handleRef.current = null;
+    };
   }, [code]);
 
   const participants = useMemo(() => {
-    const list: Array<{ uid: string; name: string; color: string; avatar: string; instrument: InstrumentKey }> = [];
+    const list: Array<{
+      uid: string;
+      name: string;
+      color: string;
+      avatar: string;
+      instrument: InstrumentKey;
+    }> = [];
     Object.values(presence).forEach((arr) => arr.forEach((p) => list.push(p)));
     return list;
   }, [presence]);
@@ -84,14 +113,17 @@ function JamRoom() {
     handleRef.current?.updatePresence({ instrument });
   };
 
-  const trigger = useCallback(async (note: string, vel = 0.9) => {
-    await ensureAudio();
-    playLocal(guest.instrument, note);
-    handleRef.current?.send({ inst: guest.instrument, note, vel });
-    const rid = `me-${Date.now()}-${Math.random()}`;
-    setRipples((r) => [...r, { id: rid, color: guest.color, note: `You · ${note}` }]);
-    window.setTimeout(() => setRipples((r) => r.filter((x) => x.id !== rid)), 900);
-  }, [guest.instrument, guest.color]);
+  const trigger = useCallback(
+    async (note: string, vel = 0.9) => {
+      await ensureAudio();
+      playLocal(guest.instrument, note);
+      handleRef.current?.send({ inst: guest.instrument, note, vel });
+      const rid = `me-${Date.now()}-${Math.random()}`;
+      setRipples((r) => [...r, { id: rid, color: guest.color, note: `You · ${note}` }]);
+      window.setTimeout(() => setRipples((r) => r.filter((x) => x.id !== rid)), 900);
+    },
+    [guest.instrument, guest.color],
+  );
 
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/jam/${code}` : "";
   const copy = async () => {
@@ -100,7 +132,9 @@ function JamRoom() {
       setCopied(true);
       toast.success("Link copied");
       window.setTimeout(() => setCopied(false), 1500);
-    } catch { toast.error("Could not copy"); }
+    } catch {
+      toast.error("Could not copy");
+    }
   };
 
   return (
@@ -108,7 +142,9 @@ function JamRoom() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="glass-strong rounded-full px-3 py-1.5 text-xs font-mono tracking-widest">{code}</div>
+          <div className="glass-strong rounded-full px-3 py-1.5 text-xs font-mono tracking-widest">
+            {code}
+          </div>
           <button
             onClick={copy}
             className="glass rounded-full px-3 py-1.5 text-xs inline-flex items-center gap-1.5 hover:bg-white/10 transition"
@@ -120,7 +156,10 @@ function JamRoom() {
             <Users className="h-3 w-3" /> {participants.length} live
           </div>
         </div>
-        <Link to="/jam" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+        <Link
+          to="/jam"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        >
           <LogOut className="h-3.5 w-3.5" /> Leave
         </Link>
       </div>
@@ -147,7 +186,8 @@ function JamRoom() {
               </div>
               <div className="text-xs">
                 <div className="font-medium leading-tight">
-                  {p.name}{p.uid === guest.id && " (you)"}
+                  {p.name}
+                  {p.uid === guest.id && " (you)"}
                 </div>
                 <div className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
                   <Music2 className="h-2.5 w-2.5" /> {p.instrument}
@@ -217,7 +257,22 @@ function JamRoom() {
 /*  - Drums: 4 pads                                                           */
 /* -------------------------------------------------------------------------- */
 
-const SCALE_NOTES = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5", "A5", "B5"];
+const SCALE_NOTES = [
+  "C4",
+  "D4",
+  "E4",
+  "F4",
+  "G4",
+  "A4",
+  "B4",
+  "C5",
+  "D5",
+  "E5",
+  "F5",
+  "G5",
+  "A5",
+  "B5",
+];
 const KB_KEYS = "asdfghjklqwerty".split("");
 const DRUM_PADS: Array<{ id: "kick" | "snare" | "hat" | "tom"; label: string; key: string }> = [
   { id: "kick", label: "Kick", key: "z" },
@@ -226,7 +281,13 @@ const DRUM_PADS: Array<{ id: "kick" | "snare" | "hat" | "tom"; label: string; ke
   { id: "tom", label: "Tom", key: "v" },
 ];
 
-function PlaySurface({ instrument, onTrigger }: { instrument: InstrumentKey; onTrigger: (note: string, vel?: number) => void }) {
+function PlaySurface({
+  instrument,
+  onTrigger,
+}: {
+  instrument: InstrumentKey;
+  onTrigger: (note: string, vel?: number) => void;
+}) {
   // Keyboard shortcuts
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -248,7 +309,12 @@ function PlaySurface({ instrument, onTrigger }: { instrument: InstrumentKey; onT
     return (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-1">
         {DRUM_PADS.map((p) => (
-          <PadButton key={p.id} label={p.label} hint={p.key.toUpperCase()} onHit={() => onTrigger(p.id)} />
+          <PadButton
+            key={p.id}
+            label={p.label}
+            hint={p.key.toUpperCase()}
+            onHit={() => onTrigger(p.id)}
+          />
         ))}
       </div>
     );
@@ -269,7 +335,17 @@ function PlaySurface({ instrument, onTrigger }: { instrument: InstrumentKey; onT
   );
 }
 
-function PadButton({ label, hint, tall, onHit }: { label: string; hint?: string; tall?: boolean; onHit: () => void }) {
+function PadButton({
+  label,
+  hint,
+  tall,
+  onHit,
+}: {
+  label: string;
+  hint?: string;
+  tall?: boolean;
+  onHit: () => void;
+}) {
   const [pulse, setPulse] = useState(0);
   const handle = () => {
     onHit();
@@ -277,14 +353,19 @@ function PadButton({ label, hint, tall, onHit }: { label: string; hint?: string;
   };
   return (
     <button
-      onPointerDown={(e) => { e.preventDefault(); handle(); }}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        handle();
+      }}
       style={{ touchAction: "none" }}
       className={`relative overflow-hidden rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 active:scale-[0.97] transition grid place-items-center font-medium ${
         tall ? "aspect-[1/3] min-h-[140px]" : "aspect-square"
       }`}
     >
       <span className="text-xs sm:text-sm">{label}</span>
-      {hint && <span className="absolute top-1 right-1.5 text-[9px] text-muted-foreground">{hint}</span>}
+      {hint && (
+        <span className="absolute top-1 right-1.5 text-[9px] text-muted-foreground">{hint}</span>
+      )}
       <AnimatePresence>
         <motion.span
           key={pulse}
